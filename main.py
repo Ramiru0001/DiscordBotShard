@@ -224,6 +224,7 @@ async def on_reaction_add(reaction, user):
         return
     # リアクションが追加されたメッセージの ID を取得
     message_id = reaction.message.id
+    print(f"on_reaction_add:{reaction.emoji}")
     if message_id in message_channel_mapping:
         # ページ番号を取得
         page_number = message_channel_mapping[message_id]
