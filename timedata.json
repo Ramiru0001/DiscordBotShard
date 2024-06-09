@@ -1,0 +1,42 @@
+[
+    {
+        "type": "A",
+        "color":"red",
+        "days_off": ["Monday", "Tuesday"],
+        "time1":"0時50分~4時40分",
+        "time2":"6時50分~10時40分",
+        "time3":"12時50分~16時40分"
+    },
+    {
+        "type": "B",
+        "color":"red",
+        "days_off": ["Tuesday", "Wednesday"],
+        "time1":"19時30分~23時20分",
+        "time2":"1時30分~5時20分",
+        "time3":"7時30分~11時20分"
+    },
+    {
+        "type": "C",
+        "color":"red",
+        "days_off": ["Wednesday", "Thursday"],
+        "time1":"20時40分~0時30分",
+        "time2":"2時40分~6時30分",
+        "time3":"8時40分~12時30分"
+    },
+    {
+        "type": "D",
+        "color":"black",
+        "days_off": ["Saturday", "Sunday"],
+        "time1":"19時00分~22時50分",
+        "time2":"3時00分~6時50分",
+        "time3":"11時00分~14時50分"
+    },
+    {
+        "type": "E",
+        "color":"black",
+        "days_off": ["Sunday", "Monday"],
+        "time1":"19時20分~23時10分",
+        "time2":"3時20分~7時10分",
+        "time3":"11時20分~15時10分"
+    }
+]
