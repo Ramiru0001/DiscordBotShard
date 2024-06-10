@@ -1,0 +1,188 @@
+[
+    {
+        "date": "01",
+        "type": "A",
+        "area": "草原",
+        "location": "洞窟"
+    },
+    {
+        "date": "02",
+        "type": "E",
+        "area": "雨林",
+        "location": "神殿前"
+    },
+    {
+        "date": "03",
+        "type": "B",
+        "area": "峡谷",
+        "location": "夢見の町"
+    },
+    {
+        "date": "04",
+        "type": "D",
+        "area": "捨て地",
+        "location": "倒壊した祠"
+    },
+    {
+        "date": "05",
+        "type": "C",
+        "area": "書庫",
+        "location": "波止場"
+    },
+    {
+        "date": "06",
+        "type": "E",
+        "area": "草原",
+        "location": "浮島or神殿前"
+    },
+    {
+        "date": "07",
+        "type": "A",
+        "area": "雨林",
+        "location": "端（神殿奥）"
+    },
+    {
+        "date": "08",
+        "type": "D",
+        "area": "峡谷",
+        "location": "スケートリンク"
+    },
+    {
+        "date": "09",
+        "type": "B",
+        "area": "捨て地",
+        "location": "座礁船"
+    },
+    {
+        "date": "10",
+        "type": "E",
+        "area": "書庫",
+        "location": "砂漠"
+    },
+    {
+        "date": "11",
+        "type": "C",
+        "area": "草原",
+        "location": "楽園"
+    },
+    {
+        "date": "12",
+        "type": "D",
+        "area": "雨林",
+        "location": "小川"
+    },
+    {
+        "date": "13",
+        "type": "A",
+        "area": "峡谷",
+        "location": "夢見の町"
+    },
+    {
+        "date": "14",
+        "type": "E",
+        "area": "捨て地",
+        "location": "戦場"
+    },
+    {
+        "date": "15",
+        "type": "B",
+        "area": "書庫",
+        "location": "波止場"
+    },
+    {
+        "date": "16",
+        "type": "D",
+        "area": "草原",
+        "location": "蝶々"
+    },
+    {
+        "date": "17",
+        "type": "C",
+        "area": "雨林",
+        "location": "晴れ間"
+    },
+    {
+        "date": "18",
+        "type": "E",
+        "area": "峡谷",
+        "location": "スケートリンク"
+    },
+    {
+        "date": "19",
+        "type": "A",
+        "area": "捨て地",
+        "location": "墓所"
+    },
+    {
+        "date": "20",
+        "type": "D",
+        "area": "書庫",
+        "location": "砂漠"
+    },
+    {
+        "date": "21",
+        "type": "B",
+        "area": "草原",
+        "location": "鳥の巣"
+    },
+    {
+        "date": "22",
+        "type": "E",
+        "area": "雨林",
+        "location": "神殿前"
+    },
+    {
+        "date": "23",
+        "type": "C",
+        "area": "峡谷",
+        "location": "隠者の峠"
+    },
+    {
+        "date": "24",
+        "type": "D",
+        "area": "捨て地",
+        "location": "倒壊した祠"
+    },
+    {
+        "date": "25",
+        "type": "A",
+        "area": "書庫",
+        "location": "波止場"
+    },
+    {
+        "date": "26",
+        "type": "E",
+        "area": "草原",
+        "location": "浮島or神殿前"
+    },
+    {
+        "date": "27",
+        "type": "B",
+        "area": "雨林",
+        "location": "ツリーハウス"
+    },
+    {
+        "date": "28",
+        "type": "D",
+        "area": "峡谷",
+        "location": "スケートリンク"
+    },
+    {
+        "date": "29",
+        "type": "C",
+        "area": "捨て地",
+        "location": "箱舟"
+    },
+    {
+        "date": "30",
+        "type": "E",
+        "area": "書庫",
+        "location": "砂漠"
+    },
+    {
+        "date": "31",
+        "type": "A",
+        "area": "草原",
+        "location": "洞窟"
+    }
+]
