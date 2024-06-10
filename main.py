@@ -233,6 +233,7 @@ async def on_reaction_add(reaction, user):
         #print(f"ページ番号: {page_number}")
         #print(f"最大ページ番号: {max_page_number}")
         #print(f"リアクション絵文字: {reaction.emoji}")
+        #絵文字が絵文字リストの中にある場合
         if str(reaction.emoji) in emoji_list:
             index = emoji_list.index(str(reaction.emoji))
             channel_index = page_number * chunk_size + index
@@ -259,6 +260,7 @@ async def on_reaction_add(reaction, user):
                 print("selected_channel_id代入")
                 shard_notify_channnel_id = selected_channel_id
                 print(f"on_selected_channel_id : {shard_notify_channnel_id}")
+        #絵文字場右矢印の場合
         elif str(reaction.emoji) == '➡️' and page_number < max_page_number:
             page_number += 1
             message_channel_mapping[message_id] = page_number# ページ番号を更新
@@ -272,6 +274,7 @@ async def on_reaction_add(reaction, user):
             # ユーザーのリアクションを削除
             #await remove_user_reactions(reaction, user)
             #print("右")
+        #絵文字が左矢印の場合
         elif str(reaction.emoji) == '⬅️' and page_number > 0:
             #print(f"ページ番号更新;{page_number}")
             page_number -= 1
