@@ -43,6 +43,7 @@ display_data = None
 today_weekday = None
 is_today_off = False
 message_channel_mapping = {}  # グローバルスコープで定義
+message_command_mapping = {}  # 追加
 # メッセージ内容を格納する変数を定義
 message_content = ""
 # ページごとのチャンネルリストを保存する辞書
@@ -208,7 +209,10 @@ async def check_today_data(ctx):
 # コマンドが呼ばれたら、選択肢を送信する処理
 @client.command(name='select_channel')
 async def select_channel(ctx):
-    await send_channel_selection_message(ctx)
+    global message_command_mapping
+    message = await ctx.send("Now Loading")
+    await send_channel_selection_message(ctx,message)
+    message_command_mapping[message.id] = 'select_channel'  # 追加
 # リアクションが追加されたときに実行される処理
 @client.event
 async def on_reaction_add(reaction, user):
@@ -217,7 +221,7 @@ async def on_reaction_add(reaction, user):
     global page_channels,chunk_size,channels
     global emoji_list,num_pages
     global shard_notify_flag,channels_ID
-    global shard_notify_channnel_id,send_selection_message_now
+    global shard_notify_channnel_id,send_selection_message_now,message_channel_mapping, message_command_mapping
     # 絵文字オブジェクトを取得
     # ボット自身のリアクションは無視する
     if user.bot:
@@ -225,69 +229,53 @@ async def on_reaction_add(reaction, user):
     # リアクションが追加されたメッセージの ID を取得
     message_id = reaction.message.id
     print(f"on_reaction_add:{reaction.emoji}")
+    if message_id in message_command_mapping: 
+        command = message_command_mapping[message_id] 
+        #チャンネル選択画面の場合
+        if command == 'send_channel_selection_message': 
+            await handle_select_channel_reaction(reaction, user) 
+        #オプション選択画面の場合
+        elif command == 'send_selection_message': 
+            #何もしない
+            await handle_select_option_reaction(reaction, user) 
+        elif command == 'shard_notify': 
+            await handle_shard_notify_reaction(reaction, user) 
+        elif command == 'shard_notify_confirmation': 
+            await handle_shard_notify_confirmation_reaction(reaction, user) 
+# select_channelコマンドのリアクション処理
+async def handle_select_channel_reaction(reaction, user):
+    message_id = reaction.message.id
     if message_id in message_channel_mapping:
-        # ページ番号を取得
         page_number = message_channel_mapping[message_id]
-        # ページの最大数を取得
         max_page_number = len(channel_chunks) - 1
-        #print(f"ページ番号: {page_number}")
-        #print(f"最大ページ番号: {max_page_number}")
-        #print(f"リアクション絵文字: {reaction.emoji}")
-        #絵文字が絵文字リストの中にある場合
+        #絵文字が1～10の場合
         if str(reaction.emoji) in emoji_list:
             index = emoji_list.index(str(reaction.emoji))
             channel_index = page_number * chunk_size + index
             selected_channel = channels[channel_index]
-            #await reaction.message.channel.send(f"{user.mention} {selected_channel.name} チャンネルが選択されました。")
-            print(f" {selected_channel.name} チャンネルが選択されました。")
-            if send_channel_selection_message_now:
-                # ユーザーのリアクションを削除
-                async for user_in_reaction in reaction.users():
-                    if user_in_reaction == user:
-                        await reaction.remove(user_in_reaction)
-            if send_selection_message_now:
-                while shard_notify_channnel_id and shard_notify_options_index is not None and shard_notify_options:
-                    await asyncio.sleep(1)  # 1秒待機して再試行する
-                # ユーザーのリアクションを削除
-                async for user_in_reaction in reaction.users():
-                    if user_in_reaction == user:
-                        await reaction.remove(user_in_reaction)
-            #シャード通知設定中なら
-            if shard_notify_flag==True:
-                print("シャード設定中")
-                selected_channel_id = channels_ID[channel_index]
-                #selected_channel = discord.utils.get(ctx.guild.channels, id=selected_channel_id)
-                print("selected_channel_id代入")
-                shard_notify_channnel_id = selected_channel_id
-                print(f"on_selected_channel_id : {shard_notify_channnel_id}")
-        #絵文字場右矢印の場合
+            print(f"{selected_channel.name} チャンネルが選択されました。")
+            await remove_user_reaction(reaction, user)
+            shard_notify_channnel_id = channels_ID[channel_index]
+            print(f"on_selected_channel_id : {shard_notify_channnel_id}")
+        #絵文字が右矢印の場合
         elif str(reaction.emoji) == '➡️' and page_number < max_page_number:
             page_number += 1
-            message_channel_mapping[message_id] = page_number# ページ番号を更新
-            #print(f"ページ番号更新;{page_number}")
-            await update_message(page_number, reaction.message, channel_chunks, emoji_list)  # 次のページへ移動
-            #await reaction.remove(user)  
-            # # ユーザーのリアクションを削除
-            async for user_in_reaction in reaction.users():
-                if user_in_reaction == user:
-                    await reaction.remove(user_in_reaction)
-            # ユーザーのリアクションを削除
-            #await remove_user_reactions(reaction, user)
-            #print("右")
+            message_channel_mapping[message_id] = page_number
+            await update_message(page_number, reaction.message, channel_chunks, emoji_list)
+            await remove_user_reaction(reaction, user)
         #絵文字が左矢印の場合
         elif str(reaction.emoji) == '⬅️' and page_number > 0:
-            #print(f"ページ番号更新;{page_number}")
             page_number -= 1
-            message_channel_mapping[message_id] = page_number  # ページ番号を更新
-            await update_message(page_number, reaction.message, channel_chunks, emoji_list)  # 前のページへ移動
-            #wait reaction.remove(user)  
-            # ユーザーのリアクションを削除
-            async for user_in_reaction in reaction.users():
-                if user_in_reaction == user:
-                    await reaction.remove(user_in_reaction)
-            # ユーザーのリアクションを削除
-            #await remove_user_reactions(reaction, user)
-            #print("左")
+            message_channel_mapping[message_id] = page_number
+            await update_message(page_number, reaction.message, channel_chunks, emoji_list)
+            await remove_user_reaction(reaction, user)
+async def handle_select_option_reaction(reaction, user):
+    #何もしていない
+    pass
+async def handle_shard_notify_reaction(reaction, user):
+    pass
+async def handle_shard_notify_confirmation_reaction(reaction, user):
+    pass
 # 例として、コマンドを作成し、それを呼び出します
 # コマンドが呼ばれたら、選択肢を送信する処理
 @client.command(name='select')
@@ -297,7 +285,7 @@ async def select(ctx):
 @client.command(name='shard_notify')
 async def shard_notify(ctx):
     global shard_notify_flag,shard_notify_channnel_id,shard_notify_options_index
-    global shard_notify_options,send_selection_message_now,send_channel_selection_message_now
+    global shard_notify_options,message_command_mapping,send_selection_message_now,send_channel_selection_message_now
     shard_notify_flag=True
     shard_notify_channnel_id=None
     shard_notify_options=None
@@ -306,11 +294,11 @@ async def shard_notify(ctx):
     options = ["デイリー更新時", "シャード開始時間", "シャード終了30分前", "決定"]
     # 選択画面のメッセージを作成
     select_message = await ctx.send("Now Loading")
-    # メッセージを編集
-    #await select_message.edit(content="これが編集されたメッセージです")
-    await send_channel_selection_message(ctx,select_message)
+    message_command_mapping[select_message.id] = 'shard_notify'
+    await send_channel_selection_message(ctx, select_message)
+    message_command_mapping[select_message.id] = 'shard_notify'  # 追加
     #shard_notify_channnel_idが入る
-    print(f"shard_notify_channnel_id: {shard_notify_channnel_id}")
+    #print(f"shard_notify_channnel_id: {shard_notify_channnel_id}")
     while shard_notify_channnel_id is None:
         await asyncio.sleep(1)  # 1秒待機して再試行する
     send_channel_selection_message_now=False
@@ -320,6 +308,7 @@ async def shard_notify(ctx):
     #emojisの絵文字リアクションから削除する
     await remove_bot_reactions(select_message, emojis)
     await send_selection_message(ctx, select_message)
+    message_command_mapping[select_message.id] = 'shard_notify'
     send_selection_message_now=False
     #両方入力された場合
     if shard_notify_channnel_id and shard_notify_options_index is not None and shard_notify_options:
@@ -339,6 +328,7 @@ async def shard_notify(ctx):
         )
         # 確認画面を送信
         await select_message.edit(content=confirmation_message)
+        message_command_mapping[select_message.id] = 'shard_notify_confirmation'
         # YとNのリアクションを追加
         await select_message.add_reaction('🇾')  # Y
         await select_message.add_reaction('🇳')  # N
@@ -366,6 +356,7 @@ async def send_selection_message(ctx,message):
     send_selection_message_now=True
     # 選択肢のリスト
     options = ["デイリー更新時", "シャード開始時間", "シャード終了30分前", "決定"]
+    message_command_mapping[message.id] = 'send_selection_message'
     # 選択肢を含むメッセージの作成
     message_content = "選択してください：\n"
     for index, option in enumerate(options):
@@ -373,6 +364,7 @@ async def send_selection_message(ctx,message):
 
     # メッセージを編集
     await message.edit(content=message_content)
+    message_command_mapping[message.id] = 'send_selection_message'
     # メッセージから指定されたリストに含まれないボットが追加したリアクションをすべて削除する
     await remove_non_listed_bot_reactions(message)
     # 絵文字のリアクションを追加
@@ -428,6 +420,7 @@ async def send_channel_selection_message(ctx,message=None):
     global shard_notify_channnel_id,send_channel_selection_message_now
     send_channel_selection_message_now=True
     print("send_channel_selection_messageが呼ばれました")
+    message_command_mapping[message.id] = 'send_channel_selection_message'
     # サーバー内の全てのテキストチャンネルを取得
     channels = [channel for channel in ctx.guild.channels if isinstance(channel, discord.TextChannel)]
     # チャンネルのリストからIDを取得してchannels_IDに追加
@@ -443,11 +436,6 @@ async def send_channel_selection_message(ctx,message=None):
 
     # メッセージを送信してリアクションをつける
     emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-    # message_content = f"**Page {current_page + 1}/{num_pages}**\n\n"
-    # for index, channel in enumerate(channel_chunks[current_page]):
-    #     message_content += f"{emoji_list[index]} {channel.name}\n" 
-    
-    # message = await ctx.send(message_content)
     if message is None:
         message_content = f"**Page {current_page + 1}/{num_pages}**\n\n"
         for index, channel in enumerate(channel_chunks[current_page]):
@@ -459,7 +447,7 @@ async def send_channel_selection_message(ctx,message=None):
         for index, channel in enumerate(channel_chunks[current_page]):
             message_content += f"{emoji_list[index]} {channel.name}\n" 
         await message.edit(content=message_content)
-    
+    message_command_mapping[message.id] = 'send_channel_selection_message'
     # リアクションを追加
     for emoji in emoji_list[:min(len(channel_chunks[current_page]), len(emoji_list))]:
         await message.add_reaction(emoji)
@@ -516,10 +504,12 @@ async def remove_bot_reactions(message, emojis):
     except discord.HTTPException:
         # リクエストが失敗した場合の処理
         pass
+# メッセージのユーザーの絵文字のリアクションを削除
 async def remove_user_reaction(reaction, user):
     async for user_in_reaction in reaction.users():
         if user_in_reaction == user:
             await reaction.remove(user_in_reaction)
+# shard_notifyコマンドのリアクション処理
 # ボットを実行
 # デフォルトのコマンド処理を呼び出す
 keep_alive()
