@@ -66,6 +66,8 @@ send_channel_selection_message_fin=False
 send_selection_message_fin=False
 select_option_decide=False
 shard_Notify_now=False
+#更新時間
+update_time="17:00"
 emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 # 関数定義: データを更新する関数
 async def update_data_at_start():
@@ -203,6 +205,70 @@ async def on_ready():
 @client.command(name='ping')
 async def ping(ctx):
     await ctx.send('Pong!')
+#初期設定のコマンド
+@client.command(name='setup_bot')
+async def setup_bot(ctx):
+    global update_time,shard_notify_channnel_id,shard_notify_options
+    update_time=None
+    # ここに初期設定のロジックを追加する
+    message_content=(
+        "シャード通知botへようこそ\n"
+        "\n"
+        "こちらは、『sky星を紡ぐ子どもたち』というゲームの『シャード（闇の破片）』というイベントの通知をするbotです。\n"
+        "まず、Botの初期設定を行います。\n"
+        "次のメッセージで現在の更新時間を設定してください。\n"
+    )
+    message= await ctx.send(content=message_content)
+    #await message.edit(content=confirmation_message)
+    await setup_updatre_time(ctx)
+    while update_time is None:
+            await asyncio.sleep(1)  # 1秒待機して再試行する
+    message_content=(
+        "次は、通知する時間を設定してください\n"
+        "バグ対策の為、制限時間が設定してあります。タイムアウトした場合『!shard_nofity』のコマンドで再度設定してください。\n"
+    )
+    await message.edit(content=message_content)
+    await shard_notify(ctx)
+    # 選択されたチャンネルを取得
+    #channel = client.get_channel(shard_notify_channnel_id)
+    # shard_notify_optionsのすべての要素を文字列として結合して出力
+    # options_str = ", ".join(shard_notify_options)
+    # message_content=(
+    #     f"更新時間:{update_time}\n"
+    #     f"チャンネル：{channel.name}\n"
+    #     f"設定：{options_str}\n"
+    #     f"以上の設定でシャードの通知を行います"
+    #     f"\n"
+    # )
+    #await message.edit(content=message_content)
+# 更新時間を設定するコマンド
+@client.command(name='setup_update_time')
+async def setup_updatre_time(ctx):
+    global update_time
+    update_time=None
+    # 選択画面のメッセージを送信
+    message = await ctx.send("更新時間を選択してください：\n1️⃣ 16:00\n2️⃣ 17:00")
+    
+    # リアクションを追加
+    await message.add_reaction('1️⃣')
+    await message.add_reaction('2️⃣')
+    # リアクションを待機
+    def check(reaction, user):
+        return user == ctx.author and str(reaction.emoji) in ['1️⃣', '2️⃣']
+
+    try:
+        reaction, user = await ctx.bot.wait_for('reaction_add', check=check)
+        
+        # ユーザーが選択したリアクションに応じて処理を行う
+        if str(reaction.emoji) == '1️⃣':
+            update_time = "16:00"
+        elif str(reaction.emoji) == '2️⃣':
+            update_time = "17:00"
+        
+        await ctx.send(f"更新時間が {update_time} に設定されました！")
+        await message.delete()
+    except asyncio.TimeoutError:
+        await ctx.send("タイムアウトしました。")
 
 #コマンドが呼ばれたら、色、場所、時間、エリア、有無等を送信する
 @client.command(name='check_today_data')
@@ -374,7 +440,7 @@ async def shard_notify(ctx):
                 return user == ctx.author and str(reaction.emoji) in ['🇾', '🇳']
             
             try:
-                reaction, _ = await client.wait_for('reaction_add', timeout=60.0, check=check)
+                reaction, _ = await client.wait_for('reaction_add', check=check)
                 if str(reaction.emoji) == '🇾':  # Yを選択した場合
                     # 確認メッセージを削除
                     await select_message.delete()
@@ -492,12 +558,18 @@ async def send_channel_selection_message(ctx,message=None):
     emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
     if message is None:
         message_content = f"**Page {current_page + 1}/{num_pages}**\n\n"
+        message_content += "こちらは、通知を送信するチャンネルを選択するページです。\n"
+        message_content += "以下のチャンネルから、更新時間を通知するチャンネルを選択し、そのリアクションを付けてください。\n\n"
+        message_content += "右矢印のリアクションで次のページ、左矢印のリアクションで前のページを参照できます。\n\n"
         for index, channel in enumerate(channel_chunks[current_page]):
             message_content += f"{emoji_list[index]} {channel.name}\n" 
         message = await ctx.send(message_content)
     else:
         # メッセージを編集
         message_content = f"**Page {current_page + 1}/{num_pages}**\n\n"
+        message_content += "こちらは、通知を送信するチャンネルを選択するページです。\n"
+        message_content += "以下のチャンネルから、更新時間を通知するチャンネルを選択し、そのリアクションを付けてください。\n\n"
+        message_content += "右矢印のリアクションで次のページ、左矢印のリアクションで前のページを参照できます。\n\n"
         for index, channel in enumerate(channel_chunks[current_page]):
             message_content += f"{emoji_list[index]} {channel.name}\n" 
         await message.edit(content=message_content)
@@ -520,6 +592,9 @@ async def update_message(page, message, channel_chunks, emoji_list):
     #print(f"ページ {page} のメッセージを更新しています")
     temp_content = message.content
     message_content = f"**Page {page + 1}/{len(channel_chunks)}**\n\n"
+    message_content += "こちらは、通知を送信するチャンネルを選択するページです。\n"
+    message_content += "以下のチャンネルから、更新時間を通知するチャンネルを選択し、そのリアクションを付けてください。\n\n"
+    message_content += "右矢印のリアクションで次のページ、左矢印のリアクションで前のページを参照できます。\n\n"
     for index, channel in enumerate(channel_chunks[page]):
         message_content += f"{emoji_list[index]} {channel.name}\n"
         #print(f"Channel name: {channel.name}")  # チャンネル名を出力
