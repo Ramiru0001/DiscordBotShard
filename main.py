@@ -5,6 +5,8 @@ from discord.ext import commands
 from flask import Flask
 from keep_alive import keep_alive
 import json
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 import threading
 import asyncio
@@ -66,14 +68,17 @@ send_channel_selection_message_fin=False
 send_selection_message_fin=False
 select_option_decide=False
 shard_Notify_now=False
+setup_bot_cancel=False
 #更新時間
-update_time="17:00"
+update_time="16:00"
 emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+
+
 # 関数定義: データを更新する関数
 async def update_data_at_start():
     #is_today_off   trueなら休み
     global matching_shard, display_data,today_weekday
-    global is_today_off,sharddata,timedata,color_translation
+    global is_today_off,sharddata,timedata,color_translation,update_time
 
     today_weekday = datetime.now().strftime('%A')
     now = datetime.now()
@@ -84,8 +89,8 @@ async def update_data_at_start():
     display_data = None
     # デバッグ用のログ出力
     print("データ更新")
-    # 現在の時刻が16時より前の場合は前日のデータを表示
-    if current_time < time(16, 0):
+    # 現在の時刻がupdate_timeより前の場合は前日のデータを表示
+    if current_time < update_time:
         # 前日の日付を取得
         yesterday = now - timedelta(days=1)
         today_date = yesterday.strftime('%d')
@@ -126,29 +131,46 @@ async def send_shard_info(ctx):
         if is_today_off:
             await ctx.send("休み")
         else:
+            time1_start, time1_end = display_data['time1'].split('~')
+            time2_start, time2_end = display_data['time2'].split('~')
+            time3_start, time3_end = display_data['time3'].split('~')
+            if(update_time=="16:00"):
+            # 各時間を1時間前に調整
+                updated_time1_start = (datetime.strptime(time1_start, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+                updated_time1_end = (datetime.strptime(time1_end, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+                updated_time2_start = (datetime.strptime(time2_start, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+                updated_time2_end = (datetime.strptime(time2_end, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+                updated_time3_start = (datetime.strptime(time3_start, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+                updated_time3_end = (datetime.strptime(time3_end, '%H時%M分') - timedelta(hours=1)).strftime('%H時%M分')
+            else:
+                # update_timeが16時以外の場合、元の時間を使用
+                updated_time1_start, updated_time1_end = time1_start, time1_end
+                updated_time2_start, updated_time2_end = time2_start, time2_end
+                updated_time3_start, updated_time3_end = time3_start, time3_end
             color_japanese = color_translation.get(display_data['color'], display_data['color'])
             shard_info = (
                 f"Area: {matching_shard['area']}\n"
                 f"Location: {matching_shard['location']}\n"
                 f"Color: {color_japanese}\n"
-                f"Time1: {display_data['time1']}\n"
-                f"Time2: {display_data['time2']}\n"
-                f"Time3: {display_data['time3']}"
+                f"Time1: {updated_time1_start}~{updated_time1_end}\n"
+                f"Time2: {updated_time2_start}~{updated_time2_end}\n"
+                f"Time3: {updated_time3_start}~{updated_time3_end}"
             )
             await ctx.send(shard_info)
     else:
         await ctx.send("データが見つかりませんでした。")
-# 関数定義: 16時にデータを更新する関数
-async def update_data_at_16():
+# 関数定義: update_timeにデータを更新する関数
+async def update_data_at_update_time(update_time):
 
     global matching_shard, display_data
     
     now = datetime.now()
-    current_time = now.time()
+    current_time = now.strftime("%H:%M")
     
     # 16時になったらデータを更新
-    if current_time == time(16, 0):
+    if current_time == update_time:
         await update_data_at_start()
+        print("データが更新されました")
 def parse_time(time_str):
     # "0時50分"形式の文字列をdatetime.timeオブジェクトに変換する
     hour, minute = map(int, time_str[:-1].split('時'))
@@ -200,6 +222,7 @@ client = commands.Bot(command_prefix='!',intents=intents)
 async def on_ready():
     print(f'{client.user.name} が起動しました')
     await update_data_at_start()
+    scheduler.add_job(update_data_at_update_time, 'cron', hour=update_time.hour, minute=update_time.minute)
 # メッセージを受信したときの処理
 # コマンドを定義
 @client.command(name='ping')
@@ -208,7 +231,8 @@ async def ping(ctx):
 #初期設定のコマンド
 @client.command(name='setup_bot')
 async def setup_bot(ctx):
-    global update_time,shard_notify_channnel_id,shard_notify_options
+    global update_time,shard_notify_channnel_id,shard_notify_options,setup_bot_cancel
+    setup_bot_cancel=False
     update_time=None
     # ここに初期設定のロジックを追加する
     message_content=(
@@ -229,18 +253,13 @@ async def setup_bot(ctx):
     )
     await message.edit(content=message_content)
     await shard_notify(ctx)
-    # 選択されたチャンネルを取得
-    #channel = client.get_channel(shard_notify_channnel_id)
-    # shard_notify_optionsのすべての要素を文字列として結合して出力
-    # options_str = ", ".join(shard_notify_options)
-    # message_content=(
-    #     f"更新時間:{update_time}\n"
-    #     f"チャンネル：{channel.name}\n"
-    #     f"設定：{options_str}\n"
-    #     f"以上の設定でシャードの通知を行います"
-    #     f"\n"
-    # )
-    #await message.edit(content=message_content)
+    #setup_botの関数の実行をキャンセルする
+    if(setup_bot_cancel):
+        return
+    # スケジューラの設定
+
+    #設定された時間に、設定されたチャンネルにデータを送信する処理
+
 # 更新時間を設定するコマンド
 @client.command(name='setup_update_time')
 async def setup_updatre_time(ctx):
@@ -377,7 +396,7 @@ async def shard_notify(ctx):
     async def setup_shard_notification():
         global shard_notify_flag,shard_notify_channnel_id,shard_notify_options_index
         global shard_notify_options,message_command_mapping,send_selection_message_now,send_channel_selection_message_now,send_channel_selection_message_fin,send_selection_message_fin,select_option_decide
-
+        global setup_bot_cancel
         if(shard_notify_flag==True):
             await ctx.send("Error:通知設定は同時に二つ以上実行することはできません。")
             return
@@ -448,6 +467,8 @@ async def shard_notify(ctx):
                 else:  # Nを選択した場合
                     await select_message.delete()
                     await ctx.send("シャード通知の設定をキャンセルしました。")
+                    #setup_botの関数の実行をキャンセルする
+                    setup_bot_cancel=True
                     shard_notify_flag=False
                     return
             except asyncio.TimeoutError:
@@ -647,3 +668,26 @@ try:
     client.run(os.environ['TOKEN'])
 except:
     os.system("kill")
+
+# 非同期のスケジューラを作成
+scheduler = AsyncIOScheduler()
+
+# 定期的に実行する関数
+async def periodic_task():
+    print("1 分ごとに実行されるタスクが実行されました")
+
+# インターバルトリガーを作成（1 分ごとに実行）
+trigger = IntervalTrigger(minutes=1)
+
+# タスクをスケジューラに追加
+scheduler.add_job(periodic_task, trigger)
+
+# スケジューラを開始
+scheduler.start()
+
+# イベントループを開始
+async def main():
+    while True:
+        await asyncio.sleep(10)  # スケジューラがバックグラウンドで実行されるようにする
+# 非同期処理を開始
+asyncio.run(main())
