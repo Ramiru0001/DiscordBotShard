@@ -7,6 +7,7 @@ from keep_alive import keep_alive
 import json
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 import threading
 import asyncio
@@ -71,7 +72,36 @@ shard_Notify_now=False
 setup_bot_cancel=False
 #更新時間
 update_time="16:00"
+update_job_id='update_data_job'
 emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+# 非同期のスケジューラを作成
+scheduler = AsyncIOScheduler()
+
+# 定期的に実行する関数
+async def periodic_task():
+    print("1 分ごとに実行されるタスクが実行されました")
+
+# スケジュールの更新時間を変更して設定する関数
+def reschedule_update_time_job():
+    global update_time, scheduler, update_job_id
+
+    # 既存のupdate_timeに関するジョブを削除
+    job = scheduler.get_job(update_job_id)
+    if job:
+        job.remove()
+
+    # 新しい時間でジョブを追加
+    update_time_obj = datetime.strptime(update_time, "%H:%M")
+    scheduler.add_job(update_data_at_start, CronTrigger(hour=update_time_obj.hour, minute=update_time_obj.minute), id=update_job_id)
+
+# インターバルトリガーを作成（1 分ごとに実行）
+trigger = IntervalTrigger(minutes=1)
+
+# タスクをスケジューラに追加
+#scheduler.add_job(periodic_task, trigger)
+
+# スケジューラを開始
+scheduler.start()
 
 
 # 関数定義: データを更新する関数
@@ -83,7 +113,8 @@ async def update_data_at_start():
     today_weekday = datetime.now().strftime('%A')
     now = datetime.now()
     today_date = now.strftime('%d')
-    current_time = now.time()
+    #current_time = now.time()
+    current_time = now.strftime("%H:%M")
     is_today_off = False
     matching_shard = None
     display_data = None
@@ -171,7 +202,8 @@ async def update_data_at_update_time(update_time):
     if current_time == update_time:
         await update_data_at_start()
         print("データが更新されました")
-def parse_time(time_str):
+        
+async def parse_time(time_str):
     # "0時50分"形式の文字列をdatetime.timeオブジェクトに変換する
     hour, minute = map(int, time_str[:-1].split('時'))
     print
@@ -220,14 +252,33 @@ client = commands.Bot(command_prefix='!',intents=intents)
 #サーバーの情報を更新
 @client.event
 async def on_ready():
+    global scheduler
     print(f'{client.user.name} が起動しました')
+    #データ更新
     await update_data_at_start()
-    scheduler.add_job(update_data_at_update_time, 'cron', hour=update_time.hour, minute=update_time.minute)
+    # 更新時間をdatetimeに変換
+    pdate_time_obj = datetime.strptime(update_time, "%H:%M")
+    scheduler.add_job(update_data_at_update_time, 'cron', hour=pdate_time_obj.hour, minute=pdate_time_obj.minute)
+    # スケジューラを開始
+
 # メッセージを受信したときの処理
 # コマンドを定義
 @client.command(name='ping')
 async def ping(ctx):
     await ctx.send('Pong!')
+
+# スケジューラをリセットする関数を作成
+@client.command(name='schedule_reset')
+async def reschedule_all_job():
+    global update_time, scheduler
+
+    # 既存のジョブを削除
+    scheduler.remove_all_jobs()
+
+    # 新しい時間でジョブ（更新時間に更新する）を追加
+    update_time_obj = datetime.strptime(update_time, "%H:%M")
+    scheduler.add_job(update_data_at_start, CronTrigger(hour=update_time_obj.hour, minute=update_time_obj.minute))
+
 #初期設定のコマンド
 @client.command(name='setup_bot')
 async def setup_bot(ctx):
@@ -256,8 +307,12 @@ async def setup_bot(ctx):
     #setup_botの関数の実行をキャンセルする
     if(setup_bot_cancel):
         return
+    #設定した時間に通知する設定
+    
     # スケジューラの設定
-
+    # 更新時間をdatetimeに変換
+    #pdate_time_obj = datetime.strptime(update_time, "%H:%M")
+    #scheduler.add_job(update_data_at_update_time, 'cron', hour=pdate_time_obj.hour, minute=pdate_time_obj.minute)
     #設定された時間に、設定されたチャンネルにデータを送信する処理
 
 # 更新時間を設定するコマンド
@@ -285,6 +340,8 @@ async def setup_updatre_time(ctx):
             update_time = "17:00"
         
         await ctx.send(f"更新時間が {update_time} に設定されました！")
+        #更新時間を変更
+        await reschedule_update_time_job()
         await message.delete()
     except asyncio.TimeoutError:
         await ctx.send("タイムアウトしました。")
@@ -496,7 +553,10 @@ async def send_selection_message(ctx,message):
     message_command_mapping[message.id] = 'send_selection_message'
     print(f"message_command_mapping4 : {message_command_mapping[message.id]}")
     # 選択肢を含むメッセージの作成
-    message_content = "選択してください：\n"
+    message_content = (
+        "通知する時間をすべて選択してください：\n"
+        "選択し終わったら、決定のリアクションを押してください：\n"
+    )
     for index, option in enumerate(options):
         message_content += f"{emoji_list[index]}{option}\n"
 
@@ -579,7 +639,7 @@ async def send_channel_selection_message(ctx,message=None):
     emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
     if message is None:
         message_content = f"**Page {current_page + 1}/{num_pages}**\n\n"
-        message_content += "こちらは、通知を送信するチャンネルを選択するページです。\n"
+        message_content += "通知を送信するチャンネルを選択するページです。\n"
         message_content += "以下のチャンネルから、更新時間を通知するチャンネルを選択し、そのリアクションを付けてください。\n\n"
         message_content += "右矢印のリアクションで次のページ、左矢印のリアクションで前のページを参照できます。\n\n"
         for index, channel in enumerate(channel_chunks[current_page]):
@@ -668,22 +728,6 @@ try:
     client.run(os.environ['TOKEN'])
 except:
     os.system("kill")
-
-# 非同期のスケジューラを作成
-scheduler = AsyncIOScheduler()
-
-# 定期的に実行する関数
-async def periodic_task():
-    print("1 分ごとに実行されるタスクが実行されました")
-
-# インターバルトリガーを作成（1 分ごとに実行）
-trigger = IntervalTrigger(minutes=1)
-
-# タスクをスケジューラに追加
-scheduler.add_job(periodic_task, trigger)
-
-# スケジューラを開始
-scheduler.start()
 
 # イベントループを開始
 async def main():
