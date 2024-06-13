@@ -61,7 +61,7 @@ send_channel_selection_message_now=False
 #シャード通知設定コマンドを使用中ならtrue
 shard_notify_flag=False
 #シャード通知設定で使用するID
-shard_notify_channnel_id=None
+shard_notify_channel_id=None
 #シャード通知設定の通知条件設定のインデックス0~2が入っている
 shard_notify_options_index=None
 shard_notify_options=None
@@ -72,11 +72,17 @@ shard_Notify_now=False
 setup_bot_cancel=False
 #更新時間
 update_time="16:00"
+updated_time1_start,updated_time2_start,updated_time3_start,updated_time1_end,updated_time2_end,updated_time3_end
 update_job_id='update_data_job'
 emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 # 非同期のスケジューラを作成
 scheduler = AsyncIOScheduler()
-
+#各タイプごとに通知ジョブのIDをリストとして保持
+daily_notify_job_ids = {
+    'update_time': [],
+    'start_time': [],
+    'end_30_minutes': [],  
+}
 # 定期的に実行する関数
 async def periodic_task():
     print("1 分ごとに実行されるタスクが実行されました")
@@ -108,7 +114,7 @@ scheduler.start()
 async def update_data_at_start():
     #is_today_off   trueなら休み
     global matching_shard, display_data,today_weekday
-    global is_today_off,sharddata,timedata,color_translation,update_time
+    global is_today_off,sharddata,timedata,color_translation,update_time,updated_time1_start,updated_time2_start,updated_time3_start,updated_time1_end,updated_time2_end,updated_time3_end
 
     today_weekday = datetime.now().strftime('%A')
     now = datetime.now()
@@ -146,21 +152,11 @@ async def update_data_at_start():
                 if today_weekday in display_data['days_off']:
                     is_today_off = True
                 break
-    #else:
-        #print("update_matching_shardなし")
-
-# 関数定義: データ更新とシャード情報の送信
-async def send_shard_info(ctx):
-    # データを更新
-    await update_data_at_start()  
-    global matching_shard, display_data,today_weekday
-    global is_today_off,sharddata,timedata,color_translation
-    print("データ出力処理中")
-    # display_dataがある場合はメッセージを送信
     if display_data:
         # 今日が休みかどうかをチェック
         if is_today_off:
-            await ctx.send("休み")
+            #await channel.send("休み")
+            pass
         else:
             time1_start, time1_end = display_data['time1'].split('~')
             time2_start, time2_end = display_data['time2'].split('~')
@@ -178,6 +174,24 @@ async def send_shard_info(ctx):
                 updated_time1_start, updated_time1_end = time1_start, time1_end
                 updated_time2_start, updated_time2_end = time2_start, time2_end
                 updated_time3_start, updated_time3_end = time3_start, time3_end
+# 関数定義: データ更新とシャード情報の送信
+async def send_shard_info(channel_id):
+    # データを更新
+    await update_data_at_start()  
+    global matching_shard, display_data,today_weekday
+    global is_today_off,sharddata,timedata,color_translation,updated_time1_start,updated_time2_start,updated_time3_start,updated_time1_end,updated_time2_end,updated_time3_end
+
+    channel = client.get_channel(channel_id)
+    if channel is None:
+        print(f"チャンネルID {channel_id} が見つかりません。")
+        return
+    print("データ出力処理中")
+    # display_dataがある場合はメッセージを送信
+    if display_data:
+        # 今日が休みかどうかをチェック
+        if is_today_off:
+            await channel.send("休み")
+        else:
             color_japanese = color_translation.get(display_data['color'], display_data['color'])
             shard_info = (
                 f"Area: {matching_shard['area']}\n"
@@ -187,9 +201,9 @@ async def send_shard_info(ctx):
                 f"Time2: {updated_time2_start}~{updated_time2_end}\n"
                 f"Time3: {updated_time3_start}~{updated_time3_end}"
             )
-            await ctx.send(shard_info)
+            await channel.send(shard_info)
     else:
-        await ctx.send("データが見つかりませんでした。")
+        await channel.send("データが見つかりませんでした。")
 # 関数定義: update_timeにデータを更新する関数
 async def update_data_at_update_time(update_time):
 
@@ -240,6 +254,31 @@ async def send_check_today_data():
     channel = client.get_channel(channnel_id)  # 送信先のチャンネルIDを指定する
     # メッセージを送信
     await channel.send("!check_today_data")  # 送信するメッセージを指定する
+#毎日通知するジョブを設定する関数
+async def schedule_daily_notify(notify_time, channel_id, notify_type,job_function, job_args=()):
+    global scheduler, daily_notify_job_ids
+
+    # 既存のdaily_notify_timeに関するジョブを削除
+    job_ids = daily_notify_job_ids.get(notify_type, [])
+    for job_id in job_ids:
+        job = scheduler.get_job(job_id)
+        if job:
+            job.remove()
+
+    # 新しい時間でジョブを追加
+    notify_time_obj = datetime.strptime(notify_time, "%H:%M")
+    scheduler.add_job(job_function, CronTrigger(hour=notify_time_obj.hour, minute=notify_time_obj.minute), args=job_args)
+
+    # 新しいジョブIDをリストに追加
+    new_job_id = f'{notify_type}_job_{len(job_ids) + 1}'
+    daily_notify_job_ids[notify_type].append(new_job_id)
+#一度だけ通知するジョブを設定する関数
+async def schedule_one_time_notify(notify_time, channel_id):
+    global scheduler
+
+    # 新しい時間でジョブを追加
+    notify_time_obj = datetime.strptime(notify_time, "%Y-%m-%d %H:%M")
+    scheduler.add_job(send_shard_info(channel_id), CronTrigger(year=notify_time_obj.year, month=notify_time_obj.month, day=notify_time_obj.day, hour=notify_time_obj.hour, minute=notify_time_obj.minute), args=[channel_id])
 
 # Intentsを設定
 intents = discord.Intents.default()
@@ -282,7 +321,7 @@ async def reschedule_all_job():
 #初期設定のコマンド
 @client.command(name='setup_bot')
 async def setup_bot(ctx):
-    global update_time,shard_notify_channnel_id,shard_notify_options,setup_bot_cancel
+    global update_time,shard_notify_channel_id,shard_notify_options,setup_bot_cancel,shard_notify_options_index
     setup_bot_cancel=False
     update_time=None
     # ここに初期設定のロジックを追加する
@@ -307,14 +346,23 @@ async def setup_bot(ctx):
     #setup_botの関数の実行をキャンセルする
     if(setup_bot_cancel):
         return
-    #設定した時間に通知する設定
-    
-    # スケジューラの設定
-    # 更新時間をdatetimeに変換
-    #pdate_time_obj = datetime.strptime(update_time, "%H:%M")
-    #scheduler.add_job(update_data_at_update_time, 'cron', hour=pdate_time_obj.hour, minute=pdate_time_obj.minute)
-    #設定された時間に、設定されたチャンネルにデータを送信する処理
+    # 通知時間のスケジュール設定
+    if shard_notify_options_index is not None:
+        for option_index in shard_notify_options_index:
+            if option_index == 0:  # デイリー更新時
+                await schedule_daily_notify(update_time, shard_notify_channel_id, 'update_time', send_shard_info, [shard_notify_channel_id])
+            elif option_index == 1:  # シャード開始時間
+                # job_args に渡す引数をタプルで定義
+                job_args = (update_time, updated_time1_start, updated_time2_start, updated_time3_start, shard_notify_channel_id)
+                # schedule_daily_notify を使ってジョブをスケジュール
+                await schedule_daily_notify(update_time, shard_notify_channel_id, 'start_time', schedule_shard_start_times, job_args)
 
+            elif option_index == 2:  # シャード終了30分前
+                # job_args に渡す引数をタプルで定義
+                job_args = (update_time, updated_time1_end, updated_time2_end, updated_time3_end, shard_notify_channel_id)
+                # schedule_daily_notify を使ってジョブをスケジュール
+                await schedule_daily_notify(update_time, shard_notify_channel_id, 'end_30_minutes', schedule_shard_end_30_times, job_args)
+                
 # 更新時間を設定するコマンド
 @client.command(name='setup_update_time')
 async def setup_updatre_time(ctx):
@@ -368,7 +416,7 @@ async def on_reaction_add(reaction, user):
     global page_channels,chunk_size,channels
     global emoji_list,num_pages
     global shard_notify_flag,channels_ID
-    global shard_notify_channnel_id,send_selection_message_now,message_channel_mapping, message_command_mapping
+    global shard_notify_channel_id,send_selection_message_now,message_channel_mapping, message_command_mapping
     # 絵文字オブジェクトを取得
     # ボット自身のリアクションは無視する
     if user.bot:
@@ -391,10 +439,62 @@ async def on_reaction_add(reaction, user):
             await handle_shard_notify_reaction(reaction, user) 
         elif command == 'shard_notify_confirmation': 
             await handle_shard_notify_confirmation_reaction(reaction, user) 
-    
+#シャード開始時通知のスケジュール追加する関数
+async def schedule_shard_start_times(update_time, updated_time1_start, updated_time2_start, updated_time3_start, shard_notify_channel_id):
+    if  is_today_off:
+        return
+    current_date = datetime.now().date()  # 現在の日付を取得
+    update_time_obj = datetime.strptime(update_time, '%H:%M')
+
+    notify_time1 = datetime.strptime(updated_time1_start, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time1.time() < update_time_obj.time():
+        notify_time1 += timedelta(days=1)
+    notify_time1 = notify_time1.strftime('%Y-%m-%d %H:%M')
+
+    notify_time2 = datetime.strptime(updated_time2_start, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time2.time() < update_time_obj.time():
+        notify_time2 += timedelta(days=1)
+    notify_time2 = notify_time2.strftime('%Y-%m-%d %H:%M')
+
+    notify_time3 = datetime.strptime(updated_time3_start, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time3.time() < update_time_obj.time():
+        notify_time3 += timedelta(days=1)
+    notify_time3 = notify_time3.strftime('%Y-%m-%d %H:%M')
+
+    schedule_one_time_notify(notify_time1, shard_notify_channel_id)
+    schedule_one_time_notify(notify_time2, shard_notify_channel_id)
+    schedule_one_time_notify(notify_time3, shard_notify_channel_id)
+#シャード終了30分前通知のスケジュール追加する関数
+async def schedule_shard_end_30_times(update_time, updated_time1_end, updated_time2_end, updated_time3_end, shard_notify_channel_id):
+    if  is_today_off:
+        return
+    current_date = datetime.now().date()  # 現在の日付を取得
+    update_time_obj = datetime.strptime(update_time, '%H:%M')
+
+    notify_time1 = datetime.strptime(updated_time1_end, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time1.time() < update_time_obj.time():
+        notify_time1 += timedelta(days=1)
+    notify_time1 -= timedelta(minutes=30)
+    notify_time1 = notify_time1.strftime('%Y-%m-%d %H:%M')
+
+    notify_time2 = datetime.strptime(updated_time2_end, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time2.time() < update_time_obj.time():
+        notify_time2 += timedelta(days=1)
+    notify_time2 -= timedelta(minutes=30)
+    notify_time2 = notify_time2.strftime('%Y-%m-%d %H:%M')
+
+    notify_time3 = datetime.strptime(updated_time3_end, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+    if notify_time3.time() < update_time_obj.time():
+        notify_time3 += timedelta(days=1)
+    notify_time3 -= timedelta(minutes=30)
+    notify_time3 = notify_time3.strftime('%Y-%m-%d %H:%M')
+
+    schedule_one_time_notify(notify_time1, shard_notify_channel_id)
+    schedule_one_time_notify(notify_time2, shard_notify_channel_id)
+    schedule_one_time_notify(notify_time3, shard_notify_channel_id)
 # select_channelコマンドのリアクション処理
 async def handle_select_channel_reaction(reaction, user):
-    global send_channel_selection_message_fin,shard_notify_channnel_id
+    global send_channel_selection_message_fin,shard_notify_channel_id
     message_id = reaction.message.id
     if message_id in message_channel_mapping:
         page_number = message_channel_mapping[message_id]
@@ -406,8 +506,8 @@ async def handle_select_channel_reaction(reaction, user):
             selected_channel = channels[channel_index]
             print(f"{selected_channel.name} チャンネルが選択されました。")
             await remove_user_reaction(reaction, user)
-            shard_notify_channnel_id = channels_ID[channel_index]
-            print(f"on_selected_channel_id : {shard_notify_channnel_id}")
+            shard_notify_channel_id = channels_ID[channel_index]
+            print(f"on_selected_channel_id : {shard_notify_channel_id}")
             send_channel_selection_message_fin=True
             #message_command_mapping[reaction.message.id] = 'shard_notify'
             print(f"handle_select_channel_reaction  message_command_mapping : {message_command_mapping[reaction.message.id]}")
@@ -451,7 +551,7 @@ async def select(ctx):
 @client.command(name='shard_notify')
 async def shard_notify(ctx):
     async def setup_shard_notification():
-        global shard_notify_flag,shard_notify_channnel_id,shard_notify_options_index
+        global shard_notify_flag,shard_notify_channel_id,shard_notify_options_index
         global shard_notify_options,message_command_mapping,send_selection_message_now,send_channel_selection_message_now,send_channel_selection_message_fin,send_selection_message_fin,select_option_decide
         global setup_bot_cancel
         if(shard_notify_flag==True):
@@ -461,7 +561,7 @@ async def shard_notify(ctx):
         send_channel_selection_message_now=False
         send_selection_message_now=False
         shard_notify_options=None
-        shard_notify_channnel_id=None
+        shard_notify_channel_id=None
         select_option_decide=False
         shard_notify_flag=True
         shard_notify_options_index=None
@@ -476,9 +576,9 @@ async def shard_notify(ctx):
         while send_channel_selection_message_fin==False:
             await asyncio.sleep(1)  # 1秒待機して再試行する
         #shard_notify_channnel_idが入る
-        print(f"shard_notify_channnel_id: {shard_notify_channnel_id}")
+        print(f"shard_notify_channnel_id: {shard_notify_channel_id}")
         print(f"message_command_mapping2 : {message_command_mapping[select_message.id]}")
-        while shard_notify_channnel_id is None:
+        while shard_notify_channel_id is None:
             await asyncio.sleep(1)  # 1秒待機して再試行する
         send_channel_selection_message_now=False
         #print("shard_notify_channnel_id is not None")
@@ -489,12 +589,12 @@ async def shard_notify(ctx):
         await send_selection_message(ctx, select_message)
         send_selection_message_now=False
         #両方入力された場合
-        if shard_notify_channnel_id and shard_notify_options_index is not None and shard_notify_options:
+        if shard_notify_channel_id and shard_notify_options_index is not None and shard_notify_options:
             emojis =[ "1️⃣", "2️⃣", "3️⃣", "4️⃣"]
             #emojisのbotの絵文字リアクションから削除する
             await remove_bot_reactions(select_message, emojis)
             # 選択されたチャンネルを取得
-            channel = client.get_channel(shard_notify_channnel_id)
+            channel = client.get_channel(shard_notify_channel_id)
             # shard_notify_optionsのすべての要素を文字列として結合して出力
             options_str = ", ".join(shard_notify_options)
             # 確認画面の内容を構築
@@ -617,7 +717,7 @@ async def send_channel_selection_message(ctx,message=None):
     global page_channels, chunk_size, channels
     global emoji_list, num_pages
     global channel_chunks,channels_ID
-    global shard_notify_channnel_id,send_channel_selection_message_now
+    global shard_notify_channel_id,send_channel_selection_message_now
     send_channel_selection_message_now=True
     print("send_channel_selection_messageが呼ばれました")
     message_command_mapping[message.id] = 'send_channel_selection_message'
