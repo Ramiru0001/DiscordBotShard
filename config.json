@@ -1,0 +1,32 @@
+{
+    "server_settings": {
+        "651692513564033035": {
+            "update_time": "16:00",
+            "notify_options": [
+                "\u30b7\u30e3\u30fc\u30c9\u958b\u59cb\u6642\u9593",
+                "\u30c7\u30a4\u30ea\u30fc\u66f4\u65b0\u6642",
+                "\u30b7\u30e3\u30fc\u30c9\u7d42\u4e8630\u5206\u524d"
+            ],
+            "channel_id": 1243371500187291698,
+            "notify_options_index": [
+                0,
+                1,
+                2
+            ]
+        },
+        "1083617120463622206": {
+            "update_time": "17:00",
+            "notify_options": [
+                "\u30c7\u30a4\u30ea\u30fc\u66f4\u65b0\u6642",
+                "\u30b7\u30e3\u30fc\u30c9\u958b\u59cb\u6642\u9593",
+                "\u30b7\u30e3\u30fc\u30c9\u7d42\u4e8630\u5206\u524d"
+            ],
+            "channel_id": 1083617121201836093,
+            "notify_options_index": [
+                0,
+                1,
+                2
+            ]
+        }
+    }
+}
