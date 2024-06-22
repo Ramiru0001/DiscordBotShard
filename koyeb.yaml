@@ -1,6 +1,6 @@
 services:
-  - name: my-flask-app
-    image: my-flask-app-image
+  - name: my-app
+    image: my-app-image
     command: python main.py  # main.py を直接実行するコマンド
     ports:
       - port: 8080
