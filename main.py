@@ -457,7 +457,7 @@ async def update_data_at_start(update_time):
         }
         return update_time_cache[update_time]
 # 関数定義: データの取得とシャード情報の送信
-async def send_shard_info(channel_id,guild_id):
+async def send_shard_info(channel_id,guild_id,additional_message=None):
     global guild_settings_cache,color_translation
     # キャッシュからupdate_timeを読み込む
     if guild_id in guild_settings_cache:
@@ -500,6 +500,10 @@ async def send_shard_info(channel_id,guild_id):
                 f"Time2: {updated_time2_start}~{updated_time2_end}\n"
                 f"Time3: {updated_time3_start}~{updated_time3_end}"
             )
+            message = shard_info
+            # 追加のメッセージがあれば結合して送信
+            if additional_message:
+                message = f"{additional_message}\n\n{message}"
             await channel.send(shard_info)
     else:
         await channel.send("データが見つかりませんでした。")
@@ -639,7 +643,7 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
     except Exception as e:
         logger.error(f"Error schedule_daily_notifyでエラー発生 {notify_type}: {e}")
 #一度だけ通知するジョブを設定する関数
-async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,):
+async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,message):
     global scheduler
     try:
         # ジョブIDを設定するためのタイムスタンプを生成
@@ -657,7 +661,7 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,
                                     hour=notify_time_obj.hour, 
                                     minute=notify_time_obj.minute), 
                         id=job_id,
-                        args=[channel_id,guild_id])
+                        args=[channel_id,guild_id,message])
         # ログ出力
         logger.info(f"Scheduled one-time job: {job_id}")
         logger.info(f"  Notify Time: {notify_time}")
@@ -824,11 +828,10 @@ async def add_permission(ctx, mention: str= None):
         logger.info(f"user_id :{user_id}:bot_owner_id:{bot_owner_id}")
         await ctx.send("権限がありません。botオーナーのみ実行可能です。")
         return
-    user_id = extract_user_id(mention)
     if not mention:
         await ctx.send("コマンドのあとに空白を開けてメンションしてください。")
         return
-    
+    user_id = extract_user_id(mention)
     if user_id is None:
         await ctx.send("ユーザーIDが指定されていません。")
         return
@@ -858,10 +861,10 @@ async def remove_permission(ctx, mention: str= None):
     if has_permission(user_id)==False:
         await ctx.send("権限がありません。")
         return
-    user_id = extract_user_id(mention)
     if not mention:
         await ctx.send("コマンドのあとに空白を開けてメンションしてください。")
         return
+    user_id = extract_user_id(mention)
     if user_id is None:
         await ctx.send("ユーザーIDが指定されていません。")
         return
@@ -1058,7 +1061,7 @@ async def on_reaction_add(reaction, user):
     else:
         logger.debug(f"メッセージID {message_id} に対応するコマンドが見つかりませんでした。")
 #シャード開始時通知のスケジュール追加する関数
-async def schedule_shard_start_times(shard_notify_channel_id,notify_type):
+async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message):
     logger.info("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
@@ -1102,12 +1105,12 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type):
             if notify_time.time() >= update_time_obj:
                 # 過去の時間でなければスケジュールする
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
-                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type)
+                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type,message)
     
     except Exception as e:
         logger.error(f"シャード開始時間の通知ジョブのスケジュール中にエラーが発生しました: {e}")
 #シャード終了30分前通知のスケジュール追加する関数
-async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type):
+async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,message):
     logger.info("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
@@ -1165,7 +1168,7 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type):
             if notify_time.time() >= update_time_obj:
                 # 過去の時間でなければスケジュールする
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
-                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type)
+                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type,message)
                 
                 #logger.info("7")
         
@@ -1385,27 +1388,36 @@ async def schedule_notify_jobs(guild_id):
             
             if option_index == 0:  # デイリー更新時
                 logger.info("デイリー更新時の通知ジョブをスケジュールします")
-                job_args = (shard_notify_channel_id,guild_id)
+                message="デイリー更新時間です。\n今日のシャード情報"
+                job_args = (shard_notify_channel_id,guild_id,message)
                 await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'update_time', send_shard_info, job_args)
 
             elif option_index == 1:  # シャード開始時間
                 logger.info("シャード開始時間の通知ジョブをスケジュールします")
                 # job_args に渡す引数をタプルで定義
-                job_args = (shard_notify_channel_id,'start_time')
+                message="シャード開始時間です。\n今日のシャード情報"
+                job_args = (shard_notify_channel_id,'start_time',message)
                 if isinstance(shard_notify_channel_id, list):
                     # もしshard_notify_channel_idがリストであれば、最初の要素を使用するなど適切な方法で文字列に変換する
                     shard_notify_channel_id = shard_notify_channel_id[0]  # 例: 最初の要素を使用する
                 # schedule_daily_notify を使ってジョブをスケジュール
+                print("1")
                 await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'start_time', schedule_shard_start_times, job_args)
-                await schedule_shard_start_times(shard_notify_channel_id,'start_time')
+                print("2")
+                await schedule_shard_start_times(shard_notify_channel_id,'start_time',message)
+                print("3")
 
             elif option_index == 2:  # シャード終了30分前
                 logger.info("シャード終了30分前の通知ジョブをスケジュールします")
                 # job_args に渡す引数をタプルで定義
-                job_args = (shard_notify_channel_id,"end_30_minutes")
+                message="シャード終了時間30分前です。\n今日のシャード情報"
+                job_args = (shard_notify_channel_id,"end_30_minutes",message)
                 # schedule_daily_notify を使ってジョブをスケジュール
+                print("4")
                 await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'end_30_minutes', schedule_shard_end_30_times, job_args)
-                await schedule_shard_end_30_times(shard_notify_channel_id,"end_30_minutes")
+                print("5")
+                await schedule_shard_end_30_times(shard_notify_channel_id,"end_30_minutes",message)
+                print("6")
             else:
                 pass
         except Exception as e:
