@@ -16,6 +16,10 @@ import asyncio
 import json
 import sqlite3
 import logging
+import traceback
+import sys
+import ast
+import random
 
 # Flaskサーバーを起動
 app = Flask(__name__)
@@ -216,19 +220,57 @@ shard_notify_options_index=[]
 guild_semaphore = {}  # サーバーごとのセマフォ管理setup_bot
 guild_executing = {}  # 実行中の関数管理setup_bot
 emoji_list = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-
+# 通知オプションの日本語表記
+option_labels = {
+    "\u30c7\u30a4\u30ea\u30fc\u66f4\u65b0\u6642": "デイリー更新時",
+    "\u30b7\u30e3\u30fc\u30c9\u958b\u59cb\u6642\u9593": "シャード開始時間",
+    "\u30b7\u30e3\u30fc\u30c9\u7d42\u4e8630\u5206\u524d": "シャード終了30分前"
+}
+options = ["デイリー更新時", "シャード開始時間", "シャード終了30分前", "決定"]
 # ロギングの設定
-logging.basicConfig()
-logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+#logging.basicConfig()
+#logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+
+# ルートロガーの設定
+logging.basicConfig(level=logging.INFO)  # ルートロガーのデフォルトレベルをWARNINGに設定
+
 # ロガーの設定
 logger = logging.getLogger('discord_bot')
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG) # discord_bot ロガーのログレベルをDEBUGに設定
+logger.setLevel(logging.INFO)
+
+# ハンドラーの設定
 handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logging.INFO)# ハンドラーのログレベルをDEBUGに設定
+
+# フォーマッターの設定
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
+
+# ハンドラーをロガーに追加
 logger.addHandler(handler)
 
+
+def custom_exception_handler(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    # エラーメッセージを含む詳細なトレースバック情報を取得
+    tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+    tb_text = ''.join(tb_lines)
+
+    # トレースバックから行番号と列番号を抽出
+    for line in tb_lines:
+        if 'File' in line:
+            logger.error(f"エラーの詳細: {line.strip()}")
+    
+    # エラーログを記録
+    logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    logger.error(f"トレースバック: \n{tb_text}")
+
+# カスタムエラーハンドラを設定
+sys.excepthook = custom_exception_handler
 
 # 非同期のスケジューラを作成
 scheduler = AsyncIOScheduler()
@@ -264,12 +306,12 @@ async def schedule_update_time_job():
                           args=["17:00"])
 
         # ログ出力
-        print("データ更新ジョブをスケジュールしました:")
-        print(f"  16時の更新ジョブ, ジョブID: {job_id_16}")
-        print(f"  17時の更新ジョブ, ジョブID: {job_id_17}")
+        logger.info("データ更新ジョブをスケジュールしました:")
+        logger.info(f"  16時の更新ジョブ, ジョブID: {job_id_16}")
+        logger.info(f"  17時の更新ジョブ, ジョブID: {job_id_17}")
 
     except Exception as e:
-        print(f"更新ジョブのスケジュール中にエラーが発生しました: {e}")
+        logger.info(f"更新ジョブのスケジュール中にエラーが発生しました: {e}")
 
 # 関数定義: データを更新する関数
 async def update_data_at_start(update_time):
@@ -386,7 +428,7 @@ async def send_shard_info(channel_id,guild_id):
         # キャッシュに該当guild_idがない場合のデフォルト処理
         update_time = '17:00'
     # データを取得
-    data = await get_data_for_update_time(update_time)
+    data = get_data_for_update_time(update_time)
 
     # 必要な情報を取り出す
     is_today_off = data['is_today_off']
@@ -402,9 +444,9 @@ async def send_shard_info(channel_id,guild_id):
     # チャンネルを取得
     channel = client.get_channel(channel_id)
     if channel is None:
-        print(f"チャンネルID {channel_id} が見つかりません。")
+        logger.info(f"チャンネルID {channel_id} が見つかりません。")
         return
-    print("データ出力処理中")
+    logger.info("データ出力処理中")
     # display_dataがある場合はメッセージを送信
     if display_data:
         # 今日が休みかどうかをチェック
@@ -426,7 +468,7 @@ async def send_shard_info(channel_id,guild_id):
 # "0時50分"形式の文字列をdatetime.timeオブジェクトに変換する
 async def parse_time(time_str):
     hour, minute = map(int, time_str[:-1].split('時'))
-    print
+    logger.info
     return datetime.strptime(f'{hour}:{minute}', '%H:%M').time()
 
 # 関数定義: シャード開始時間と更新時間にメッセージを送信する非同期タスク
@@ -447,7 +489,7 @@ async def send_message_periodically(ctx):
         # キャッシュに該当guild_idがない場合のデフォルト処理
         update_time = '17:00'
     # データを取得
-    data = await get_data_for_update_time(update_time)
+    data = get_data_for_update_time(update_time)
 
     # 必要な情報を取り出す
     is_today_off = data['is_today_off']
@@ -475,43 +517,99 @@ async def send_message_periodically(ctx):
             await send_shard_info(ctx.channel.id,guild_id)
             # タイマーの間隔を設定（30秒ごとにチェック）
     await asyncio.sleep(60)
-
+#更新時間をセットする
+async def setup_update_time(ctx):
+    # 選択画面のメッセージを送信
+    message = await ctx.send("更新時間を選択してください：\n1️⃣ 16:00\n2️⃣ 17:00")
+    # メッセージIDとコマンドをマッピング
+    message_command_mapping[message.id] = 'setup_update_time'
+    # リアクションを追加
+    await message.add_reaction('1️⃣')
+    await message.add_reaction('2️⃣')
+    # リアクションを待機
+    def check(reaction, user):
+        return user == ctx.author and reaction.message.id == message.id and str(reaction.emoji) in ['1️⃣', '2️⃣']
+        
+    #print("1")
+    try:
+        # サーバー設定を読み込む
+        for guild in client.guilds:
+            settings = get_guild_settings(guild.id)
+            update_time = settings['update_time']
+            shard_notify_options = settings['notify_options']
+            shard_notify_channel_id=settings['channel_id']
+            shard_notify_options_index=settings['notify_options_index']
+        
+        reaction, user = await ctx.bot.wait_for('reaction_add', check=check)
+        #print("2")
+        # ユーザーが選択したリアクションに応じて処理を行う
+        if str(reaction.emoji) == '1️⃣':
+            update_time = "16:00"
+        elif str(reaction.emoji) == '2️⃣':
+            update_time = "17:00"
+        #print("3")
+        await message.delete()
+        # サーバー設定を保存
+        save_server_settings(ctx.guild.id, update_time, shard_notify_options,shard_notify_channel_id, shard_notify_options_index)
+        await ctx.send(f"更新時間が {update_time} に設定されました！")
+        # 通知時間のスケジュール設定
+        await schedule_notify_jobs(ctx.guild.id)
+        #更新時間を変更
+        #print("4")
+    except asyncio.TimeoutError:
+        await ctx.send("タイムアウトしました。")
 #毎日通知するジョブを設定する関数
 async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,job_function,job_args=()):
     global scheduler, daily_notify_job_ids
-
+    print(f"schedule_daily_notifyが呼ばれました。")
     # 既存のdaily_notify_timeに関するジョブを削除
     job_ids = daily_notify_job_ids.get(notify_type, [])
     for job_id in job_ids:
-        job = scheduler.get_job(job_id)
-        if job:
-            job.remove()
-
+        # job = scheduler.get_job(job_id)
+        # if job:
+        #     job.remove()
+        # ジョブIDからguild_idを抽出して比較
+        parts = job_id.split('_')
+        if len(parts) >= 4:  # 最低限のフォーマットの確認
+            stored_guild_id = parts[-1]
+            if stored_guild_id == guild_id:
+                job = scheduler.get_job(job_id)
+                if job:
+                    job.remove()
+    #print("1")
     # 新しい時間でジョブを追加
     try:
         notify_time_obj = datetime.strptime(notify_time, "%H:%M")
         new_job_id = f'{notify_type}_job_{len(job_ids) + 1}_{guild_id}'  # guild_idを含めた新しいジョブIDの作成
-        scheduler.add_job(job_function, CronTrigger(hour=notify_time_obj.hour, minute=notify_time_obj.minute), args=job_args, id=new_job_id)
-
+        #print("2")
+        scheduler.add_job(job_function, CronTrigger(hour=notify_time_obj.hour, minute=notify_time_obj.minute), id=new_job_id, args=job_args)
+        #print("2.5")
         # 新しいジョブIDをリストに追加
         daily_notify_job_ids.setdefault(notify_type, []).append(new_job_id)
 
+        #print("3")
         logger.info(f"Scheduled new job: {new_job_id} at {notify_time} for channel {channel_id}")
         # ジョブが追加されたことをログとして出力
-        print(f"Added new job:")
-        print(f"  Job ID: {new_job_id}")
-        print(f"  Notify Time: {notify_time}")
-        print(f"  Channel ID: {channel_id}")
-        print(f"  Notify Type: {notify_type}")
-        print(f"  Guild ID: {guild_id}")  # 追加したGuild IDの出力
+        logger.info(f"Added new job:")
+        logger.info(f"  Job ID: {new_job_id}")
+        logger.info(f"  Notify Time: {notify_time}")
+        logger.info(f"  Channel ID: {channel_id}")
+        logger.info(f"  Notify Type: {notify_type}")
+        logger.info(f"  Guild ID: {guild_id}")  # 追加したGuild IDの出力
+        
+        #print("4")
     except Exception as e:
-        logger.error(f"Error scheduling job {notify_type}: {e}")
+        logger.error(f"Error schedule_daily_notifyでエラー発生 {notify_type}: {e}")
 #一度だけ通知するジョブを設定する関数
-async def schedule_one_time_notify(notify_time, channel_id,guild_id):
+async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,):
     global scheduler
     try:
         # ジョブIDを設定するためのタイムスタンプを生成
-        job_id = f'one_time_notify_job_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+        # ジョブIDを設定するためのタイムスタンプを生成
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        random_suffix = random.randint(1, 1000)  # 1から1000までのランダムな整数
+        job_id = f'one_time_notify_job_{notify_type}_{timestamp}_{random_suffix}_{guild_id}'
+
         # 新しい時間でジョブを追加
         notify_time_obj = datetime.strptime(notify_time, "%Y-%m-%d %H:%M")
         scheduler.add_job(send_shard_info, 
@@ -523,13 +621,13 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id):
                         id=job_id,
                         args=[channel_id,guild_id])
         # ログ出力
-        print(f"Scheduled one-time job: {job_id}")
-        print(f"  Notify Time: {notify_time}")
-        print(f"  Channel ID: {channel_id}")
-        print(f"  Guild ID: {guild_id}")
+        logger.info(f"Scheduled one-time job: {job_id}")
+        logger.info(f"  Notify Time: {notify_time}")
+        logger.info(f"  Channel ID: {channel_id}")
+        logger.info(f"  Guild ID: {guild_id}")
 
     except Exception as e:
-        print(f"Error scheduling one-time job: {e}")
+        logger.info(f"Error scheduling one-time job: {e}")
 # Intentsを設定
 intents = discord.Intents.default()
 intents.message_content = True  # メッセージコンテンツを取得するために必要
@@ -542,7 +640,7 @@ client = commands.Bot(command_prefix='!',intents=intents)
 @client.event
 async def on_ready():
     global scheduler,guild_settings_cache
-    print(f'{client.user.name} が起動しました')
+    logger.info(f'{client.user.name} が起動しました')
     #現在のデータに更新して、更新時間に更新するスケジュール
     await schedule_update_time_job()
     # サーバー設定を読み込む
@@ -552,7 +650,8 @@ async def on_ready():
         shard_notify_options = settings['notify_options']
         shard_notify_channel_id=settings['channel_id']
         shard_notify_options_index=settings['notify_options_index']
-        
+
+        logger.info(f"shard_notify_options_index6:{shard_notify_options_index}")
         if isinstance(shard_notify_channel_id, list):
             # もしshard_notify_channel_idがリストであれば、最初の要素を使用するなど適切な方法で文字列に変換する
             shard_notify_channel_id = shard_notify_channel_id[0]  # 例: 最初の要素を使用する
@@ -569,15 +668,18 @@ async def on_ready():
                     await schedule_notify_jobs(guild.id)
                     pass
             else:
-                print(f"Channel with ID {shard_notify_channel_id} not found.")
-    print(guild_settings_cache)
+                logger.info(f"Channel with ID {shard_notify_channel_id} not found.")
+        logger.info(f"shard_notify_options_index7:{shard_notify_options_index}")
+    logger.info(guild_settings_cache)
     # スケジューラを開始
     scheduler.start()
-
+    # 例外を発生させるコード
+    #raise ValueError("これはテストエラーです")
+    logger.info(f"")
 # ボットが終了する際に設定を保存する
 @client.event
 async def on_disconnect():
-    print('ボットが終了します')
+    logger.info('ボットが終了します')
     # 必要に応じて設定を保存する
 # メッセージを受信したときの処理
 # コマンドを定義
@@ -590,16 +692,16 @@ async def ping(ctx):
 async def print_scheduled_jobs(ctx):
     jobs = scheduler.get_jobs()
     if jobs:
-        print("Scheduled Jobs:")
+        logger.info("Scheduled Jobs:")
         for job in jobs:
             job_id = job.id
             job_func = job.func.__name__
             job_args = job.args
             job_kwargs = job.kwargs
             job_trigger = job.trigger
-            print(f"Job ID: {job_id}, Function: {job_func}, Args: {job_args}, Kwargs: {job_kwargs}, Trigger: {job_trigger}")
+            await ctx.send(f"Job ID: {job_id}, Function: {job_func}, Args: {job_args}, Kwargs: {job_kwargs}, Trigger: {job_trigger}")
         else:
-            print("No scheduled jobs found.")
+            await ctx.send("No scheduled jobs found.")
 # !info コマンドの実装
 @client.command(name='info')
 async def info_command(ctx):
@@ -612,7 +714,8 @@ async def info_command(ctx):
         '!setup_update_time': '更新時間の変更ができます',
         '!schedule_reset': '全ての通知設定を削除します',
         '!check_today_data': '本日のシャード情報の確認ができます',
-        
+        '!show_schedule': 'デバッグ用：全てのスケジュールを確認可能',
+        '!schedule_reset_all': 'デバッグ用：全てのスケジュールを削除',
         # 他のコマンドを追加する場合はここに追加します
     }
     embed = discord.Embed(
@@ -628,6 +731,11 @@ async def info_command(ctx):
 # スケジューラをリセットする関数を作成
 @client.command(name='schedule_reset')
 async def schedule_reset(ctx):
+    await remove_jobs_by_guild_id(ctx.guild.id)
+    ctx.send("スケジュールを削除しました")
+# スケジューラをリセットする関数を作成
+@client.command(name='schedule_reset_all')
+async def schedule_reset_all(ctx):
     await reschedule_all_job(ctx)
 #初期設定のコマンド
 @client.command(name='setup_bot')
@@ -674,25 +782,47 @@ async def setup_bot(ctx):
         # 通知時間のスケジュール設定
         await schedule_notify_jobs(ctx.guild.id)
     except Exception as e:
-        print(f"エラーが発生しました: {e}")
+        logger.error(f"エラーが発生しました: {e}")
     finally:
         # 実行中フラグをクリア
         guild_executing[guild_id] = False
 # 通知時間の設定を確認するコマンドを追加
 @client.command(name='show_notify_settings')
 async def show_notify_settings(ctx):
-    # サーバー設定を読み込む
-    for guild in client.guilds:
-        settings = get_guild_settings(guild.id)
-        update_time = settings['update_time']
-        shard_notify_options = settings['notify_options']
-        shard_notify_channel_id=settings['channel_id']
-        shard_notify_options_index=settings['notify_options_index']
+    global options
 
+
+    # コマンドが実行されたギルドを取得
+    guild = ctx.guild
+    settings = get_guild_settings(guild.id)
+    shard_notify_options = settings['notify_options']
+    shard_notify_options_index = settings['notify_options_index']
+    
+    logger.info(f"shard_notify_options_index8:{shard_notify_options_index}")
+    
     if shard_notify_options is None or not shard_notify_options:
         await ctx.send("通知時間の設定はまだされていません。")
     else:
-        options_str = ", ".join(shard_notify_options)
+        #  f"通知設定: {', '.join(shard_notify_options) if shard_notify_options else 'なし'}"
+        #japanese_options = [option_labels.get(option, option) for option in shard_notify_options]
+        #options_str = ", ".join(japanese_options)
+        if isinstance(shard_notify_options_index, str):
+            # 文字列の場合リストとして評価
+            shard_notify_options_index = ast.literal_eval(shard_notify_options_index)
+            logger.info(f"shard_notify_options_index9:{shard_notify_options_index}")
+            #logger.info("shard_notify_options_indexを文字列->リストに変更")
+            #logger.info(f"shard_notify_options_index: {', '.join(map(str, shard_notify_options_index))}")
+        else:
+            if not isinstance(shard_notify_options_index, list):
+                shard_notify_options_index = [shard_notify_options_index]
+                logger.info(f"shard_notify_options_index10:{shard_notify_options_index}")
+                #logger.info("shard_notify_options_indexを？ｰ>リストに変更")
+                #logger.info(f"shard_notify_options_index: {', '.join(map(str, shard_notify_options_index))}")
+        options = ["デイリー更新時", "シャード開始時間", "シャード終了30分前", "決定"]
+        options_str = ", ".join(options[index] for index in shard_notify_options_index if 0 <=index < len(options))
+        options_str_op = ", ".join(shard_notify_options)
+        logger.info(f"shard_notify_options_index11 : {shard_notify_options_index}")
+        logger.info(f"rd_bot:shard_notify_options_index12 : {options_str_op}")
         await ctx.send(f"現在の通知時間の設定: {options_str}")
 # 更新時間を確認するコマンド
 @client.command(name='show_update_time')
@@ -711,43 +841,8 @@ async def show_update_time(ctx):
         await ctx.send(f"現在の更新時間は {update_time} です。")
 # 更新時間を設定するコマンド
 @client.command(name='setup_update_time')
-async def setup_update_time(ctx):
-    
-    # 選択画面のメッセージを送信
-    message = await ctx.send("更新時間を選択してください：\n1️⃣ 16:00\n2️⃣ 17:00")
-    
-    # リアクションを追加
-    await message.add_reaction('1️⃣')
-    await message.add_reaction('2️⃣')
-    # リアクションを待機
-    def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ['1️⃣', '2️⃣']
-
-    try:
-        # サーバー設定を読み込む
-        for guild in client.guilds:
-            settings = get_guild_settings(guild.id)
-            update_time = settings['update_time']
-            shard_notify_options = settings['notify_options']
-            shard_notify_channel_id=settings['channel_id']
-            shard_notify_options_index=settings['notify_options_index']
-        
-        reaction, user = await ctx.bot.wait_for('reaction_add', check=check)
-        
-        # ユーザーが選択したリアクションに応じて処理を行う
-        if str(reaction.emoji) == '1️⃣':
-            update_time = "16:00"
-        elif str(reaction.emoji) == '2️⃣':
-            update_time = "17:00"
-        
-        # サーバー設定を保存
-        save_server_settings(ctx.guild.id, update_time, shard_notify_options,shard_notify_channel_id, shard_notify_options_index)
-        await ctx.send(f"更新時間が {update_time} に設定されました！")
-        #更新時間を変更
-        await message.delete()
-    except asyncio.TimeoutError:
-        await ctx.send("タイムアウトしました。")
-
+async def setup_time(ctx):
+    await setup_update_time(ctx)
 #コマンドが呼ばれたら、色、場所、時間、エリア、有無等を送信する
 @client.command(name='check_today_data')
 async def check_today_data(ctx):
@@ -764,28 +859,32 @@ async def on_reaction_add(reaction, user):
         return
     # リアクションが追加されたメッセージの ID を取得
     message_id = reaction.message.id
-    print(f"リアクション追加: {reaction.emoji}")
+    logger.info(f"リアクション追加: {reaction.emoji}")
     if message_id in message_command_mapping: 
         command = message_command_mapping[message_id] 
-        print(f"リアクションコマンド: {command}")
+        logger.info(f"リアクションコマンド: {command}")
         #チャンネル選択画面の場合
         if command == 'send_channel_selection_message': 
-            print("オプション選択画面のリアクションを処理しています")
+            #print("オプション選択画面のリアクションを処理しています")
             await handle_select_channel_reaction(reaction, user) 
         #オプション選択画面の場合
         elif command == 'send_selection_message': 
-            print(f"on_reaction_add : send_selection_message")
+            #print(f"on_reaction_add : send_selection_message")
             await handle_select_option_reaction(reaction, user) 
         elif command == 'shard_notify': 
-            print("シャード通知のリアクションを処理しています")
+            #print("シャード通知のリアクションを処理しています")
             await handle_shard_notify_reaction(reaction, user) 
         elif command == 'shard_notify_confirmation': 
-            print("シャード通知確認のリアクションを処理しています")
+            #print("シャード通知確認のリアクションを処理しています")
             await handle_shard_notify_confirmation_reaction(reaction, user) 
+        elif command == 'setup_update_time':
+            #print("更新時間設定のリアクションを処理しています")
+            await handle_update_time_reaction(reaction, user)
     else:
-        print(f"メッセージID {message_id} に対応するコマンドが見つかりませんでした。")
+        logger.debug(f"メッセージID {message_id} に対応するコマンドが見つかりませんでした。")
 #シャード開始時通知のスケジュール追加する関数
-async def schedule_shard_start_times(shard_notify_channel_id):
+async def schedule_shard_start_times(shard_notify_channel_id,notify_type):
+    print("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
         channel = await client.fetch_channel(shard_notify_channel_id)
@@ -794,7 +893,7 @@ async def schedule_shard_start_times(shard_notify_channel_id):
             return
         guild_id = channel.guild.id  # ここでギルドIDを取得
         # ギルド設定を取得
-        guild_settings = await get_guild_settings(guild_id)
+        guild_settings = get_guild_settings(guild_id)
         if not guild_settings:
             logger.error(f"ギルド設定の取得に失敗しました。ギルドID: {guild_id}")
             return
@@ -802,12 +901,10 @@ async def schedule_shard_start_times(shard_notify_channel_id):
         update_time = guild_settings['update_time']
         
         # データを取得
-        data = await get_data_for_update_time(update_time)
+        data = get_data_for_update_time(update_time)
 
         # 必要な情報を取り出す
         is_today_off = data['is_today_off']
-        matching_shard = data['matching_shard']
-        display_data = data['display_data']
         updated_times = [
             data.get('updated_time1_start', None),
             data.get('updated_time2_start', None),
@@ -819,7 +916,7 @@ async def schedule_shard_start_times(shard_notify_channel_id):
         current_date = datetime.now().date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         # 実際の処理内容
-        logger.info("Running schedule_shard_start_times")
+        logger.info("シャード開始時間の通知ジョブを実行します")
         
          # 時刻を計算して、過去の時間はスケジュールしない
         for time_str in updated_times:
@@ -830,12 +927,13 @@ async def schedule_shard_start_times(shard_notify_channel_id):
             if notify_time.time() >= update_time_obj:
                 # 過去の時間でなければスケジュールする
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
-                await schedule_one_time_notify(notify_time, shard_notify_channel_id)
+                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type)
     
     except Exception as e:
-        logger.error(f"Error in schedule_shard_start_times: {e}")
+        logger.error(f"シャード開始時間の通知ジョブのスケジュール中にエラーが発生しました: {e}")
 #シャード終了30分前通知のスケジュール追加する関数
-async def schedule_shard_end_30_times(shard_notify_channel_id):
+async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type):
+    print("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
         channel = await client.fetch_channel(shard_notify_channel_id)
@@ -844,9 +942,9 @@ async def schedule_shard_end_30_times(shard_notify_channel_id):
             return
         # チャンネルオブジェクトからギルドIDを取得
         guild_id = channel.guild.id
-        
+        #print("1")
         # ギルド設定を取得
-        guild_settings = await get_guild_settings(guild_id)
+        guild_settings = get_guild_settings(guild_id)
         if not guild_settings:
             logger.error(f"ギルド設定の取得に失敗しました。ギルドID: {guild_id}")
             return
@@ -854,86 +952,96 @@ async def schedule_shard_end_30_times(shard_notify_channel_id):
         # ギルド設定から必要な情報を取得
         update_time = guild_settings['update_time']
         
+        #print("2")
         # データを取得
-        data = await get_data_for_update_time(update_time)
+        data = get_data_for_update_time(update_time)
 
         # 必要な情報を取り出す
         is_today_off = data['is_today_off']
-        matching_shard = data['matching_shard']
-        display_data = data['display_data']
         updated_times = [
             data.get('updated_time1_end', None),
             data.get('updated_time2_end', None),
             data.get('updated_time3_end', None)
         ]
         
-        logger.info(f"is_today_off の値: {is_today_off}")  # ログ出力
+        #print("3")
+        #logger.info(f"is_today_off の値: {is_today_off}")  # ログ出力
         
         if  is_today_off:
             return
         
+        #print("4")
         current_date = datetime.now().date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         
+        #print("5")
         # 実際の処理内容
-        logger.info("Running schedule_shard_end_30_times")
+        logger.info("シャード終了30分前の通知ジョブを実行します")
         
-        # 時刻を計算して、過去の時間はスケジュールしない
         # 時刻を計算して、過去の時間はスケジュールしない
         for time_str in updated_times:
             if not time_str:
                 continue
             
+            #print("6")
             notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
             notify_time -= timedelta(minutes=30)
             
             if notify_time.time() >= update_time_obj:
                 # 過去の時間でなければスケジュールする
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
-                await schedule_one_time_notify(notify_time, shard_notify_channel_id)
-    
+                await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type)
+                
+                #print("7")
+        
+        #print("8")
     except Exception as e:
-        logger.error(f"Error in schedule_shard_end_30_times: {e}")
+        logger.error(f"シャード終了30分前の通知ジョブのスケジュール中にエラーが発生しました: {e}")
+#全てのスケジュールをリセット
 async def reschedule_all_job(ctx):
     global scheduler
     # 既存のジョブを削除
     scheduler.remove_all_jobs()
+    #更新時間に更新する関数追加
+    await schedule_update_time_job()
     await ctx.send("通知設定をリセットしました")
 # リアクション削除用の関数
 async def handle_select_channel_reaction(reaction, user):
     await remove_user_reaction(reaction, user)
 async def handle_select_option_reaction(reaction, user):
-    print(f"handle_select_option_reaction")
-    try:
-        # メッセージのすべてのリアクションを取得
-        message = reaction.message
-        all_reactions = message.reactions
+    pass
+    # print(f"handle_select_option_reaction")
+    # try:
+    #     # メッセージのすべてのリアクションを取得
+    #     message = reaction.message
+    #     all_reactions = message.reactions
         
-        # ユーザーの「4️⃣」のリアクションが現れるまで待機
-        while not any(str(reaction.emoji) == "4️⃣" for reaction in all_reactions):
-            await asyncio.sleep(1)  # 1秒待機して再試行
-            # メッセージのリアクションを更新
-            message = message.channel.fetch_message(message.id)
-            all_reactions = message.reactions
+    #     # ユーザーの「4️⃣」のリアクションが現れるまで待機
+    #     while not any(str(reaction.emoji) == "4️⃣" for reaction in all_reactions):
+    #         await asyncio.sleep(1)  # 1秒待機して再試行
+    #         # メッセージのリアクションを更新
+    #         message = message.channel.fetch_message(message.id)
+    #         all_reactions = message.reactions
         
-        remove_user_reaction(reaction, user)
+    #     await remove_user_reaction(reaction, user)
 
-        # コマンドを設定
-        message_command_mapping[reaction.message.id] = 'shard_notify'
-        print(f"message_command_mapping3 : {message_command_mapping[reaction.message.id]}")
+    #     # コマンドを設定
+    #     message_command_mapping[reaction.message.id] = 'shard_notify'
+    #     print(f"message_command_mapping3 : {message_command_mapping[reaction.message.id]}")
         
-    except asyncio.TimeoutError:
-        print("タイムアウトしました。")
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")      
+    # except asyncio.TimeoutError:
+    #     print("タイムアウトしました。")
+    # except Exception as e:
+    #     print(f"エラーが発生しました: {e}")      
 async def handle_shard_notify_reaction(reaction, user):
     pass
 async def handle_shard_notify_confirmation_reaction(reaction, user):
     pass
+async def handle_update_time_reaction(reaction, user):
+    pass
 #シャードの通知を設定する関数
 async def shard_notify(ctx):
     async def setup_shard_notification():
-        #global shard_notify_options_index,shard_notify_options,
         global message_command_mapping, guild_settings_cache
         shard_notify_options=None
         shard_notify_channel_id=None
@@ -948,35 +1056,35 @@ async def shard_notify(ctx):
             update_time = '17:00'
         
         # 選択画面のメッセージを作成
-        select_message = await ctx.send("Now Loading")
-        message_command_mapping[select_message.id] = 'shard_notify'
-        print(f"message_command_mapping1 : {message_command_mapping[select_message.id]}")
+        #select_message = await ctx.send("Now Loading")
+        #message_command_mapping[select_message.id] = 'shard_notify'
+        #print(f"message_command_mapping1 : {message_command_mapping[select_message.id]}")
         
         # send_channel_selection_messageでチャンネルを選択
-        shard_notify_channel_id = await send_channel_selection_message(ctx, select_message)
+        shard_notify_channel_id = await send_channel_selection_message(ctx)
         if not shard_notify_channel_id:
             await ctx.send("タイムアウトしました。")
             return
         
         #shard_notify_channnel_idが入る
-        print(f"shard_notify_channnel_id: {shard_notify_channel_id}")
-        print(f"message_command_mapping2 : {message_command_mapping[select_message.id]}")
+        #print(f"shard_notify_channnel_id: {shard_notify_channel_id}")
+        #print(f"message_command_mapping2 : {message_command_mapping[select_message.id]}")
         
         #すべてのリアクション削除
         emojis =[ "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟","⬅️","➡️"]
         #emojisの絵文字リアクションから削除する
-        await remove_bot_reactions(select_message, emojis)
+        #await remove_bot_reactions(select_message, emojis)
         
-        shard_notify_options_index, shard_notify_options = await send_selection_message(ctx, select_message)
+        shard_notify_options_index, shard_notify_options = await send_selection_message(ctx)
         if not shard_notify_options_index or not shard_notify_options:
             await ctx.send("タイムアウトしました。")
             return
-        
+        logger.info(f"shard_notify_options_index1:{shard_notify_options_index}")
         #両方入力された場合
         if shard_notify_channel_id and shard_notify_options_index is not None and shard_notify_options:
             emojis =[ "1️⃣", "2️⃣", "3️⃣", "4️⃣"]
             #emojisのbotの絵文字リアクションから削除する
-            await remove_bot_reactions(select_message, emojis)
+            #await remove_bot_reactions(select_message, emojis)
             # 選択されたチャンネルを取得
             channel = client.get_channel(shard_notify_channel_id)
             # shard_notify_optionsのすべての要素を文字列として結合して出力
@@ -984,21 +1092,21 @@ async def shard_notify(ctx):
             # 確認画面の内容を構築
             confirmation_message = (
                 f"以下の設定でシャード通知を行います。\n"
+                f"更新時間：{update_time}\n"
                 f"チャンネル：{channel.name}\n"
                 f"設定：{options_str}\n"
                 f"以上の設定でよろしいですか？"
             )
             # 確認画面を送信
-            await select_message.edit(content=confirmation_message)
+            select_message=await ctx.send(content=confirmation_message)
             message_command_mapping[select_message.id] = 'shard_notify_confirmation'
-            print(f"message_command_mapping10 : {message_command_mapping[select_message.id]}")
+            #print(f"message_command_mapping10 : {message_command_mapping[select_message.id]}")
             # YとNのリアクションを追加
             await select_message.add_reaction('🇾')  # Y
             await select_message.add_reaction('🇳')  # N
             
             def check(reaction, user):
-                return user == ctx.author and str(reaction.emoji) in ['🇾', '🇳']
-            
+                return user == ctx.author and reaction.message.id == select_message.id and str(reaction.emoji) in ['🇾', '🇳']
             try:
                 reaction, _ = await client.wait_for('reaction_add', check=check)
                 if str(reaction.emoji) == '🇾':  # Yを選択した場合
@@ -1033,67 +1141,108 @@ async def shard_notify(ctx):
         await ctx.send(f"エラーが発生しました: {str(e)}")
         # その他のエラー処理を行います
     return
+#ギルドIDが一致する全てのスケジュールを削除する
+async def remove_jobs_by_guild_id(guild_id):
+    global scheduler
+    """
+    スケジューラーから特定のギルドIDに関連付けられたすべてのジョブを削除します。
+
+    パラメータ:
+    - scheduler (apscheduler.schedulers.background.BackgroundScheduler): APScheduler のインスタンスです。
+    - guild_id (int または str): 削除したいジョブのギルドIDです。
+
+    返り値:
+    - None
+    """
+    jobs = scheduler.get_jobs()
+    for job in jobs:
+        job_guild_id = job.id.split('_')[-1]  # ジョブIDの最後の部分にギルドIDが含まれていると仮定
+        if job_guild_id == str(guild_id):
+            scheduler.remove_job(job.id)
+
 #通知時間のスケジュール設定部分
 async def schedule_notify_jobs(guild_id):
+    global scheduler, guild_settings_cache
     # サーバー設定を読み込む
-    for guild in client.guilds:
-        settings = get_guild_settings(guild.id)
-        update_time = settings['update_time']
-        shard_notify_options = settings['notify_options']
-        shard_notify_channel_id=settings['channel_id']
-        shard_notify_options_index=settings['notify_options_index']
+    # キャッシュからギルド設定を取得
+    logger.info("schedule_notify_jobsが呼ばれました")
+    settings = get_guild_settings(guild_id)
+    if not settings:
+        logger.warning(f"ギルド設定が見つかりません。ギルドID: {guild_id}")
+        return
+
+    update_time = settings['update_time']
+    shard_notify_options_index = settings['notify_options_index']
+    shard_notify_channel_id = settings['channel_id']
     
-    print("schedule_notify_jobs 開始")
-    print(f"update_time: {update_time}")
-    print(f"shard_notify_options_index: {shard_notify_options_index}")
-    print(f"shard_notify_channel_id: {shard_notify_channel_id}")
+    logger.info("スケジュールの通知ジョブを設定します")
+    logger.info("schedule_notify_jobs 開始")
+    logger.info(f"update_time: {update_time}")
+    logger.info(f"shard_notify_options_index2: {shard_notify_options_index}")
+    logger.info(f"shard_notify_channel_id: {shard_notify_channel_id}")
+
+    # 既存のジョブを削除
+    jobs = scheduler.get_jobs()
+    for job in jobs:
+        job_guild_id = job.id.split('_')[-1]  # ジョブIDの最後の部分にギルドIDが含まれていると仮定
+        if job_guild_id == str(guild_id):
+            scheduler.remove_job(job.id)
+
+    
     # 通知時間のスケジュール設定
     if shard_notify_options_index is None:
         logger.warning("shard_notify_options_index が None です。何もスケジュールされません。")
         return
-    
-    if not isinstance(shard_notify_options_index, list):
-        shard_notify_options_index = [shard_notify_options_index]
-
+    if isinstance(shard_notify_options_index, str):
+        # 文字列の場合リストとして評価
+        shard_notify_options_index = ast.literal_eval(shard_notify_options_index)
+        logger.info("shard_notify_options_indexを文字列->リストに変更")
+        logger.info(f"shard_notify_options_index3: {', '.join(map(str, shard_notify_options_index))}")
+    else:
+        if not isinstance(shard_notify_options_index, list):
+            shard_notify_options_index = [shard_notify_options_index]
+            logger.info("shard_notify_options_indexを？ｰ>リストに変更")
+            logger.info(f"shard_notify_options_index4: {', '.join(map(str, shard_notify_options_index))}")
     for option_index in shard_notify_options_index:
         try:
-            logger.info(f"Scheduling job for option index: {option_index}")
+            logger.info(f"shard_notify_options_index5: {shard_notify_options_index}")
+            logger.info(f"option_index: {option_index}")
             
             if option_index == 0:  # デイリー更新時
                 print("デイリー更新時の通知ジョブをスケジュールします")
                 job_args = (shard_notify_channel_id,guild_id)
-                await schedule_daily_notify(update_time, shard_notify_channel_id, 'update_time', send_shard_info, job_args)
+                await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'update_time', send_shard_info, job_args)
+
             elif option_index == 1:  # シャード開始時間
                 print("シャード開始時間の通知ジョブをスケジュールします")
                 # job_args に渡す引数をタプルで定義
-                job_args = (shard_notify_channel_id)
+                job_args = (shard_notify_channel_id,'start_time')
                 if isinstance(shard_notify_channel_id, list):
                     # もしshard_notify_channel_idがリストであれば、最初の要素を使用するなど適切な方法で文字列に変換する
                     shard_notify_channel_id = shard_notify_channel_id[0]  # 例: 最初の要素を使用する
                 # schedule_daily_notify を使ってジョブをスケジュール
-                await schedule_daily_notify(update_time, shard_notify_channel_id, 'start_time', schedule_shard_start_times, 
-                (shard_notify_channel_id,))
-                await schedule_shard_start_times(schedule_shard_start_times)
+                await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'start_time', schedule_shard_start_times, job_args)
+                await schedule_shard_start_times(shard_notify_channel_id,'start_time')
 
             elif option_index == 2:  # シャード終了30分前
                 print("シャード終了30分前の通知ジョブをスケジュールします")
                 # job_args に渡す引数をタプルで定義
-                job_args = (shard_notify_channel_id)
+                job_args = (shard_notify_channel_id,"end_30_minutes")
                 # schedule_daily_notify を使ってジョブをスケジュール
-                await schedule_daily_notify(update_time, shard_notify_channel_id, 'end_30_minutes', schedule_shard_end_30_times, (shard_notify_channel_id,))
-                await schedule_shard_end_30_times(shard_notify_channel_id)
+                await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'end_30_minutes', schedule_shard_end_30_times, job_args)
+                await schedule_shard_end_30_times(shard_notify_channel_id,"end_30_minutes")
+            else:
+                pass
         except Exception as e:
-            logger.error(f"Error scheduling job for option index {option_index}: {e}")
+            logger.error(f"オプションインデックス {option_index} のジョブのスケジュール中にエラーが発生しました: {e}")
 
 # 他の関数の中で呼び出され、選択肢を送信し、ユーザーの選択を待機する処理
-async def send_selection_message(ctx,message):
+async def send_selection_message(ctx):
     global emoji_list
-    
+    logger.info("send_selection_messageが呼ばれました")
     shard_notify_options_index = []  # リストとして初期化する
     # 選択肢のリスト
     options = ["デイリー更新時", "シャード開始時間", "シャード終了30分前", "決定"]
-    message_command_mapping[message.id] = 'send_selection_message'
-    print(f"message_command_mapping4 : {message_command_mapping[message.id]}")
     # 選択肢を含むメッセージの作成
     message_content = (
         "通知する時間をすべて選択してください：\n"
@@ -1103,9 +1252,9 @@ async def send_selection_message(ctx,message):
         message_content += f"{emoji_list[index]}{option}\n"
 
     # メッセージを編集
-    await message.edit(content=message_content)
+    message=await ctx.send(content=message_content)
     message_command_mapping[message.id] = 'send_selection_message'
-    print(f"message_command_mapping5 : {message_command_mapping[message.id]}")
+    #print(f"message_command_mapping5 : {message_command_mapping[message.id]}")
     # メッセージから指定されたリストに含まれないボットが追加したリアクションをすべて削除する
     await remove_non_listed_bot_reactions(message)
     # 絵文字のリアクションを追加
@@ -1117,7 +1266,7 @@ async def send_selection_message(ctx,message):
     selected_options = set()
     # ユーザーのリアクションを待機
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in emoji_list[:len(options)]
+        return user == ctx.author and reaction.message.id == message.id and str(reaction.emoji) in emoji_list[:len(options)]
 
     try:
         while True:
@@ -1132,7 +1281,9 @@ async def send_selection_message(ctx,message):
                 if selected_options:
                     shard_notify_options=selected_options
                     # すべてのリアクションを削除
-                    await message.clear_reactions()
+                    #await message.clear_reactions()
+                    #メッセージ削除
+                    message.delete()
                     return shard_notify_options_index, selected_options
                 else:
                     return None, None
@@ -1152,13 +1303,11 @@ async def remove_non_listed_bot_reactions(message):
         async for user in reaction.users():
             await reaction.remove(user)
 # 他の関数の中で呼び出され、指定されたページのチャンネルリストを表示する処理
-async def send_channel_selection_message(ctx,message=None):
+async def send_channel_selection_message(ctx):
     global message_channel_mapping 
     global message_content
     global emoji_list
-    print("send_channel_selection_messageが呼ばれました")
-    message_command_mapping[message.id] = 'send_channel_selection_message'
-    print(f"message_command_mapping6 : {message_command_mapping[message.id]}")
+    logger.info("send_channel_selection_messageが呼ばれました")
     
     # サーバー内の全てのテキストチャンネルを取得
     channels = [channel for channel in ctx.guild.channels if isinstance(channel, discord.TextChannel)]
@@ -1186,10 +1335,14 @@ async def send_channel_selection_message(ctx,message=None):
             message_content += f"{emoji_list[index]} {channel.name}\n"
     
     # メッセージを送信または編集
-    if message is None:
-        message = await ctx.send(message_content)
-    else:
-        await message.edit(content=message_content)
+    #if message is None:
+    message = await ctx.send(message_content)
+    message_command_mapping[message.id] = 'send_channel_selection_message'
+    #print(f"message_command_mapping6 : {message_command_mapping[message.id]}")
+    # else:
+    #     await message.edit(content=message_content)
+    #     message_command_mapping[message.id] = 'send_channel_selection_message'
+    #     print(f"message_command_mapping6 : {message_command_mapping[message.id]}")
     
     # リアクションを追加
     for emoji in emoji_list[:min(len(channel_chunks[current_page]), len(emoji_list))]:
@@ -1204,12 +1357,14 @@ async def send_channel_selection_message(ctx,message=None):
     # メッセージとページのマッピングを保存
     message_channel_mapping[message.id] = current_page
     message_command_mapping[message.id] = 'send_channel_selection_message'
-    print(f"message_command_mapping7 : {message_command_mapping[message.id]}")
+    #print(f"message_command_mapping7 : {message_command_mapping[message.id]}")
     
     while True:
         try:
             # ユーザーのリアクションを待機
             reaction, user = await ctx.bot.wait_for('reaction_add', check=lambda r, u: u == ctx.author and r.message.id == message.id and str(r.emoji) in emoji_list + ['⬅️', '➡️'])
+
+            
         except asyncio.TimeoutError:
             await ctx.send("タイムアウトしました。もう一度やり直してください。")
             break
@@ -1223,13 +1378,13 @@ async def send_channel_selection_message(ctx,message=None):
             index = emoji_list.index(str(reaction.emoji))
             channel_index = current_page * chunk_size + index
             if channel_index < len(channels):
+                message.delete()
                 selected_channel = channels[channel_index]
                 shard_notify_channel_id = channels_ID[channel_index]
-                print(f"{selected_channel.name} チャンネルが選択されました。")
-                print(f"on_selected_channel_id : {shard_notify_channel_id}")
+                logger.info(f"{selected_channel.name} チャンネルが選択されました。")
+                logger.info(f"on_selected_channel_id : {shard_notify_channel_id}")
                 await ctx.send(f"チャンネル `{selected_channel.name}` が選択されました。")
                 return shard_notify_channel_id
-        
         await update_message(current_page, message, channel_chunks, emoji_list)
     return None
 # ページを更新する関数
@@ -1242,6 +1397,7 @@ async def update_message(page, message, channel_chunks, emoji_list):
         message_content += f"{emoji_list[index]} {channel.name}\n"
         
     await message.edit(content=message_content)
+    message_command_mapping[message.id] = 'send_channel_selection_message'
     # 左向きの矢印リアクションを追加
     if page > 0:
         if '⬅️' not in [reaction.emoji for reaction in message.reactions]:
