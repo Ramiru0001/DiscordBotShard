@@ -3,7 +3,7 @@ import discord
 from dotenv import load_dotenv
 from discord.ext import commands
 #from flask import Flask
-from keep_alive import keep_alive
+#from keep_alive import keep_alive
 import json
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -1626,7 +1626,7 @@ async def remove_user_reaction(reaction, user):
 # shard_notifyコマンドのリアクション処理
 # ボットを実行
 # デフォルトのコマンド処理を呼び出す
-keep_alive()
+#keep_alive()
 try:
     client.run(os.environ['TOKEN'])
 except:
