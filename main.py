@@ -21,6 +21,8 @@ import sys
 import ast
 import random
 import re
+import subprocess
+
 # Flaskサーバーを起動
 app = Flask(__name__)
 
@@ -29,7 +31,8 @@ def hello():
     return 'Hello, World!'
 
 if __name__ == '__main__':
-    app.run()
+    #app.run(debug=False)
+    subprocess.Popen(["gunicorn", "-b", "0.0.0.0:8080", "app:app"])
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
