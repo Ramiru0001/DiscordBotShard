@@ -6,9 +6,9 @@ FROM python:3.12.4
 EXPOSE 8080
 
 WORKDIR /app
-
+# ローカルのすべてのファイルをコンテナの/appにコピー
 COPY . .
-
+# 必要なPythonパッケージをインストール
 RUN pip install -r requirements.txt
 
 # CMD ["gunicorn", "-b", "0.0.0.0:8000", "main:app"]
