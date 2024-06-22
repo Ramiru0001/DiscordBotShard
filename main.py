@@ -2,7 +2,7 @@ import os
 import discord
 from dotenv import load_dotenv
 from discord.ext import commands
-from flask import Flask
+#from flask import Flask
 from keep_alive import keep_alive
 import json
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
