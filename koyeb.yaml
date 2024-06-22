@@ -1,7 +1,7 @@
 services:
   - name: my-flask-app
     image: my-flask-app-image
-    command: gunicorn -b 0.0.0.0:8080 main:app
+    command: python main.py  # main.py を直接実行するコマンド
     ports:
       - port: 8080
         protocol: HTTP
