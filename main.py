@@ -715,11 +715,11 @@ async def on_ready():
             channel = client.get_channel(shard_notify_channel_id)
             if channel:
                 # メッセージの内容を作成
-                message_content = (
-                    f"更新時間: {update_time}\n"
-                    f"通知設定: {', '.join(shard_notify_options) if shard_notify_options else 'なし'}"
-                )
-                await channel.send(message_content)
+                # message_content = (
+                #     f"更新時間: {update_time}\n"
+                #     f"通知設定: {', '.join(shard_notify_options) if shard_notify_options else 'なし'}"
+                # )
+                #await channel.send(message_content)
                 if shard_notify_options_index is not None:
                     await schedule_notify_jobs(guild.id)
                     pass
@@ -800,7 +800,7 @@ async def debug_info_command(ctx):
     # コマンドの説明を定義
     command_info = {
         '!show_schedule': 'デバッグ用：全てのスケジュールを確認可能',
-        '!schedule_reset_all': 'デバッグ用：全てのスケジュールを削除',
+        '!schedule_reset_all': 'デバッグ用：全てのスケジュールを削除して再スケジュール',
         '!add_permission': 'デバッグ用：権限付与（オーナーのみ使用可能）',
         '!remove_permission': 'デバッグ用：権限剥奪',
         '!list_permissions': 'デバッグ用：権限保持者一覧',
@@ -913,8 +913,31 @@ async def schedule_reset_all(ctx):
     if has_permission(user_id)==False:
         await ctx.send("権限がありません。")
         return
-    
+
     await reschedule_all_job(ctx)
+    logger.info("管理者により、全てのスケジュールが削除されました")
+    # サーバー設定を読み込む
+    for guild in client.guilds:
+        settings = get_guild_settings(guild.id)
+        update_time = settings['update_time']
+        shard_notify_options = settings['notify_options']
+        shard_notify_channel_id=settings['channel_id']
+        shard_notify_options_index=settings['notify_options_index']
+
+        logger.info(f"shard_notify_options_index6:{shard_notify_options_index}")
+        if isinstance(shard_notify_channel_id, list):
+            # もしshard_notify_channel_idがリストであれば、最初の要素を使用するなど適切な方法で文字列に変換する
+            shard_notify_channel_id = shard_notify_channel_id[0]  # 例: 最初の要素を使用する
+        if shard_notify_channel_id is not None:
+            channel = client.get_channel(shard_notify_channel_id)
+            if channel:
+                if shard_notify_options_index is not None:
+                    await schedule_notify_jobs(guild.id)
+                    pass
+            else:
+                logger.info(f"Channel with ID {shard_notify_channel_id} not found.")
+    
+    await ctx.send("スケジュールを全て削除して再設定しました。")
 #初期設定のコマンド
 @client.command(name='setup_bot')
 async def setup_bot(ctx):
@@ -1182,7 +1205,6 @@ async def reschedule_all_job(ctx):
     scheduler.remove_all_jobs()
     #更新時間に更新する関数追加
     await schedule_update_time_job()
-    await ctx.send("通知設定をリセットしました")
 # リアクション削除用の関数
 async def handle_select_channel_reaction(reaction, user):
     await remove_user_reaction(reaction, user)
