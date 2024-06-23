@@ -10,6 +10,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from server import server_thread
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 import threading
 import asyncio
@@ -1650,6 +1651,8 @@ async def remove_user_reaction(reaction, user):
 # デフォルトのコマンド処理を呼び出す
 #keep_alive()
 try:
+    # Koyeb用 サーバー立ち上げ
+    server_thread()
     client.run(os.environ['TOKEN'])
 except:
     os.system("kill")
