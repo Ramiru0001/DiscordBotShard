@@ -3,7 +3,7 @@ FROM python:3.12.4
 # 以下はKoyebで運用する際に必要
 # ポート番号8080解放
 
-EXPOSE 8080
+EXPOSE 8000
 
 WORKDIR /app
 # ローカルのすべてのファイルをコンテナの/appにコピー

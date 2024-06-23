@@ -3,6 +3,6 @@ services:
     image: my-app-image
     command: python main.py  # main.py を直接実行するコマンド
     ports:
-      - port: 8080
+      - port: 8000
         protocol: HTTP
         public: true
