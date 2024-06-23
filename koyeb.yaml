@@ -2,7 +2,7 @@ services:
   - name: my-app
     image: my-app-image
     command: python main.py  # main.py を直接実行するコマンド
-    ports:
-      - port: 8000
-        protocol: HTTP
-        public: true
+    # ports:
+    #   - port: 8000
+    #     protocol: HTTP
+    #     public: true
