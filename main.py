@@ -1661,7 +1661,7 @@ async def remove_user_reaction(reaction, user):
 #koyeb
 # Koyeb用 サーバー立ち上げ
 server_thread()
-client.run("TOKEN")
+client.run(TOKEN)
 #ローカル
 # try:
 #     # Koyeb用 サーバー立ち上げ
