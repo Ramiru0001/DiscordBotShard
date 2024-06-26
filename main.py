@@ -729,7 +729,8 @@ async def on_ready():
         logger.info(f"shard_notify_options_index7:{shard_notify_options_index}")
     logger.info(guild_settings_cache)
     # スケジューラを開始
-    scheduler.start()
+    if not scheduler.running:
+        scheduler.start()
     # 例外を発生させるコード
     #raise ValueError("これはテストエラーです")
     logger.info(f"")
