@@ -1658,9 +1658,8 @@ async def remove_user_reaction(reaction, user):
 # ボットを実行
 # デフォルトのコマンド処理を呼び出す
 #keep_alive()
-#try:
-    # Koyeb用 サーバー立ち上げ
 #koyeb
+# Koyeb用 サーバー立ち上げ
 server_thread()
 client.run("TOKEN")
 #ローカル
@@ -1668,9 +1667,6 @@ client.run("TOKEN")
 #     # Koyeb用 サーバー立ち上げ
 #     server_thread()
 #     client.run(os.environ['TOKEN'])
-# except:
-#     os.system("kill")
-
 # except:
 #     os.system("kill")
 
