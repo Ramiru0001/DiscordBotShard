@@ -23,6 +23,7 @@ import ast
 import random
 import re
 import subprocess
+import pytz
 
 # Flaskサーバーを起動
 # app = Flask(__name__)
@@ -242,6 +243,7 @@ color_translation = {
     "red": "赤",
     "black": "黒",
 }
+jst = pytz.timezone('Asia/Tokyo')#日本標準時のタイムゾーン情報を取得
 message_channel_mapping = {}  # グローバルスコープで定義
 message_command_mapping = {}  # 追加
 # メッセージ内容を格納する変数を定義
@@ -363,8 +365,8 @@ async def update_data_at_start(update_time):
     global sharddata,timedata,color_translation,update_time_cache
     
     try:
-        today_weekday = datetime.now().strftime('%A')
-        now = datetime.now()
+        today_weekday = datetime.now(jst).strftime('%A')
+        now = datetime.now(jst)
         today_date = now.strftime('%d')
         current_time = now.strftime("%H:%M")
         is_today_off = False
@@ -525,7 +527,7 @@ async def send_message_periodically(ctx):
     await client.wait_until_ready()
     while not client.is_closed():
         # 現在の日付と時刻を取得
-        now = datetime.now()
+        now = datetime.now(jst)
         current_time = now.time()
         
         # 休みでない場合、指定された時間になったらメッセージを送信
@@ -654,7 +656,7 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,
     try:
         # ジョブIDを設定するためのタイムスタンプを生成
         # ジョブIDを設定するためのタイムスタンプを生成
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(jst).strftime("%Y%m%d%H%M%S")
         random_suffix = random.randint(1, 1000)  # 1から1000までのランダムな整数
         job_id = f'one_time_notify_job_{notify_type}_{timestamp}_{random_suffix}_{guild_id}'
 
@@ -1121,7 +1123,7 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message
         if is_today_off:
             return
 
-        current_date = datetime.now().date()  # 現在の日付を取得
+        current_date = datetime.now(jst).date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         # 実際の処理内容
         logger.info("シャード開始時間の通知ジョブを実行します")
@@ -1179,7 +1181,7 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
             return
         
         #logger.info("4")
-        current_date = datetime.now().date()  # 現在の日付を取得
+        current_date = datetime.now(jst).date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         
         #logger.info("5")
