@@ -38,8 +38,13 @@ import subprocess
 # .envファイルから環境変数を読み込む
 load_dotenv()
 
-# Discordボットのトークン
+# Discordボットのトークン(koyeb))
 TOKEN = os.environ.get("DISCORD_TOKEN")
+#ローカル
+# Discordトークンの読み込み
+#TOKEN = os.getenv("DISCORD_TOKEN")
+if not TOKEN:
+    print("DISCORD_TOKENが環境変数に設定されていません。")
 
 # ロギングの設定
 logging.basicConfig()
@@ -1653,8 +1658,17 @@ async def remove_user_reaction(reaction, user):
 #keep_alive()
 #try:
     # Koyeb用 サーバー立ち上げ
+#koyeb
 server_thread()
 client.run("TOKEN")
+#ローカル
+# try:
+#     # Koyeb用 サーバー立ち上げ
+#     server_thread()
+#     client.run(os.environ['TOKEN'])
+# except:
+#     os.system("kill")
+
 # except:
 #     os.system("kill")
 
