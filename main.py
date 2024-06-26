@@ -1651,12 +1651,12 @@ async def remove_user_reaction(reaction, user):
 # ボットを実行
 # デフォルトのコマンド処理を呼び出す
 #keep_alive()
-try:
+#try:
     # Koyeb用 サーバー立ち上げ
-    server_thread()
-    client.run("TOKEN")
-except:
-    os.system("kill")
+server_thread()
+client.run("TOKEN")
+# except:
+#     os.system("kill")
 
 # イベントループを開始
 async def main():
