@@ -37,6 +37,13 @@ import pytz
 #     app.run(debug=False)
     #subprocess.Popen(["gunicorn", "-b", "0.0.0.0:8080", "app:app"])
 
+
+# スケジューラを開始
+# スケジューラーの設定
+scheduler = BackgroundScheduler(timezone=jst)
+if not scheduler.running:
+    scheduler.start()
+
 # .envファイルから環境変数を読み込む
 load_dotenv()
 
@@ -736,11 +743,6 @@ async def on_ready():
                 logger.info(f"Channel with ID {shard_notify_channel_id} not found.")
         logger.info(f"shard_notify_options_index7:{shard_notify_options_index}")
     logger.info(guild_settings_cache)
-    # スケジューラを開始
-    # スケジューラーの設定
-    scheduler = BackgroundScheduler(timezone=jst)
-    if not scheduler.running:
-        scheduler.start()
     # 例外を発生させるコード
     #raise ValueError("これはテストエラーです")
     logger.info(f"")
