@@ -10,6 +10,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import BackgroundScheduler
 from server import server_thread
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 import threading
@@ -736,6 +737,8 @@ async def on_ready():
         logger.info(f"shard_notify_options_index7:{shard_notify_options_index}")
     logger.info(guild_settings_cache)
     # スケジューラを開始
+    # スケジューラーの設定
+    scheduler = BackgroundScheduler(timezone=jst)
     if not scheduler.running:
         scheduler.start()
     # 例外を発生させるコード
