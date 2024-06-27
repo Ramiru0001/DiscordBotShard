@@ -40,6 +40,7 @@ import pytz
 
 # スケジューラを開始
 # スケジューラーの設定
+jst = pytz.timezone('Asia/Tokyo')#日本標準時のタイムゾーン情報を取得
 scheduler = BackgroundScheduler(timezone=jst)
 if not scheduler.running:
     scheduler.start()
@@ -251,7 +252,6 @@ color_translation = {
     "red": "赤",
     "black": "黒",
 }
-jst = pytz.timezone('Asia/Tokyo')#日本標準時のタイムゾーン情報を取得
 message_channel_mapping = {}  # グローバルスコープで定義
 message_command_mapping = {}  # 追加
 # メッセージ内容を格納する変数を定義
