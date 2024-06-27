@@ -53,7 +53,7 @@ logging.basicConfig()
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
 # スケジューラの設定
-scheduler = AsyncIOScheduler()
+#scheduler = AsyncIOScheduler()
 
 # sharddata.jsonからデータを読み込む
 with open('sharddata.json', 'r', encoding='utf-8') as file:
@@ -308,7 +308,7 @@ def custom_exception_handler(exc_type, exc_value, exc_traceback):
 sys.excepthook = custom_exception_handler
 
 # 非同期のスケジューラを作成
-scheduler = AsyncIOScheduler()
+#scheduler = AsyncIOScheduler()
 #各タイプごとに通知ジョブのIDをリストとして保持
 daily_notify_job_ids = {
     'update_time': [],
