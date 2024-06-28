@@ -1373,6 +1373,8 @@ async def remove_jobs_by_guild_id(guild_id):
         job_guild_id = job.id.split('_')[-1]  # ジョブIDの最後の部分にギルドIDが含まれていると仮定
         if job_guild_id == str(guild_id):
             scheduler.remove_job(job.id)
+    #セーブデータと、データベースからも削除する
+    save_server_settings(guild_id, None, None,None,)
 
 #通知時間のスケジュール設定部分
 async def schedule_notify_jobs(guild_id):
