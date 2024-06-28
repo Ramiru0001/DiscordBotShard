@@ -352,10 +352,11 @@ async def schedule_update_time_job():
 
         scheduler.add_job(update_data_at_start,
                           CronTrigger(hour=update_time_utc_16.hour, 
-                                      minute=update_time_obj_16.minute), 
+                                      minute=update_time_utc_16.minute), 
                           id=job_id_16,
                           args=["16:00"])
-
+        
+        print(f"この時刻に通知されます：{update_time_utc_16}")
         # 17時のジョブをスケジュール
         update_time_obj_17 = datetime.strptime("17:00", "%H:%M")
         update_time_utc_17 = japan_tz.localize(update_time_obj_17).astimezone(dc_tz)
@@ -363,10 +364,10 @@ async def schedule_update_time_job():
         job_id_17 = f"update_data_at_start_17"
         scheduler.add_job(update_data_at_start,
                           CronTrigger(hour=update_time_utc_17.hour, 
-                                      minute=update_time_obj_17.minute), 
+                                      minute=update_time_utc_17.minute), 
                           id=job_id_17,
                           args=["17:00"])
-
+        print(f"この時刻に通知されます：{update_time_utc_17}")
         # ログ出力
         logger.info("データ更新ジョブをスケジュールしました:")
         logger.info(f"  16時の更新ジョブ, ジョブID: {job_id_16}")
@@ -654,6 +655,8 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
         new_job_id = f'{notify_type}_job_{len(job_ids) + 1}_{guild_id}'  # guild_idを含めた新しいジョブIDの作成
         #logger.info("2")
         scheduler.add_job(job_function, CronTrigger(hour=notify_time_dc.hour, minute=notify_time_dc.minute), id=new_job_id, args=job_args)
+        
+        print(f"この時刻に通知されます：{notify_time_dc}")
         #logger.info("2.5")
         # 新しいジョブIDをリストに追加
         daily_notify_job_ids.setdefault(notify_type, []).append(new_job_id)
@@ -695,6 +698,7 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,
                                     minute=notify_time_utc.minute), 
                         id=job_id,
                         args=[channel_id,guild_id,message])
+        print(f"この時刻に通知されます：{notify_time_utc}")
         # ログ出力
         logger.info(f"Scheduled one-time job: {job_id}")
         logger.info(f"  Notify Time(jp): {notify_time}")
