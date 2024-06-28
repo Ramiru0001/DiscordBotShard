@@ -918,7 +918,7 @@ async def list_permissions(ctx):
 @client.command(name='schedule_reset')
 async def schedule_reset(ctx):
     await remove_jobs_by_guild_id(ctx.guild.id)
-    ctx.send("スケジュールを削除しました")
+    await ctx.send("スケジュールを削除しました")
 # スケジューラをリセットする関数を作成
 @client.command(name='schedule_reset_all')
 async def schedule_reset_all(ctx):
