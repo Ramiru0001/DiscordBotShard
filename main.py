@@ -1541,7 +1541,7 @@ async def send_selection_message(ctx):
                     # すべてのリアクションを削除
                     #await message.clear_reactions()
                     #メッセージ削除
-                    message.delete()
+                    await message.delete()
                     return shard_notify_options_index, selected_options
                 else:
                     return None, None
@@ -1636,7 +1636,7 @@ async def send_channel_selection_message(ctx):
             index = emoji_list.index(str(reaction.emoji))
             channel_index = current_page * chunk_size + index
             if channel_index < len(channels):
-                message.delete()
+                await message.delete()
                 selected_channel = channels[channel_index]
                 shard_notify_channel_id = channels_ID[channel_index]
                 logger.info(f"{selected_channel.name} チャンネルが選択されました。")
