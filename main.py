@@ -1407,7 +1407,7 @@ async def remove_jobs_by_guild_id(guild_id):
         if job_guild_id == str(guild_id):
             scheduler.remove_job(job.id)
     #セーブデータと、データベースからも削除する
-    save_server_settings(guild_id, "17:00", None,None,)
+    save_server_settings(guild_id, "17:00", None,None,None)
 
 #通知時間のスケジュール設定部分
 async def schedule_notify_jobs(guild_id):
