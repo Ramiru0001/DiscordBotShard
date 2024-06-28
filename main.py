@@ -40,8 +40,11 @@ import pytz
 
 # スケジューラを開始
 # スケジューラーの設定
-jst = pytz.timezone('Asia/Tokyo')#日本標準時のタイムゾーン情報を取得
-scheduler = BackgroundScheduler(timezone=jst)
+# タイムゾーンを設定
+timezone = pytz.timezone('Asia/Tokyo')#日本標準時のタイムゾーン情報を取得
+#scheduler = BackgroundScheduler(timezone=jst)
+# スケジューラの設定
+scheduler = AsyncIOScheduler()
 if not scheduler.running:
     scheduler.start()
 
@@ -60,8 +63,6 @@ if not TOKEN:
 logging.basicConfig()
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
-# スケジューラの設定
-#scheduler = AsyncIOScheduler()
 
 # sharddata.jsonからデータを読み込む
 with open('sharddata.json', 'r', encoding='utf-8') as file:
@@ -342,20 +343,26 @@ async def schedule_update_time_job():
     await update_data_at_start("16:00")
     await update_data_at_start("17:00")
     try:
+        japan_tz = pytz.timezone('Asia/Tokyo')
+
         # 16時のジョブをスケジュール
         update_time_obj_16 = datetime.strptime("16:00", "%H:%M")
         job_id_16 = f"update_data_at_start_16"
+        update_time_utc_16 = japan_tz.localize(update_time_obj_16).astimezone(pytz.utc)
+
         scheduler.add_job(update_data_at_start,
-                          CronTrigger(hour=update_time_obj_16.hour, 
+                          CronTrigger(hour=update_time_utc_16.hour, 
                                       minute=update_time_obj_16.minute), 
                           id=job_id_16,
                           args=["16:00"])
 
         # 17時のジョブをスケジュール
         update_time_obj_17 = datetime.strptime("17:00", "%H:%M")
+        update_time_utc_17 = japan_tz.localize(update_time_obj_17).astimezone(pytz.utc)
+        
         job_id_17 = f"update_data_at_start_17"
         scheduler.add_job(update_data_at_start,
-                          CronTrigger(hour=update_time_obj_17.hour, 
+                          CronTrigger(hour=update_time_utc_17.hour, 
                                       minute=update_time_obj_17.minute), 
                           id=job_id_17,
                           args=["17:00"])
@@ -371,11 +378,11 @@ async def schedule_update_time_job():
 # 関数定義: データを更新する関数
 async def update_data_at_start(update_time):
     #is_today_off   trueなら休み
-    global sharddata,timedata,color_translation,update_time_cache
+    global sharddata,timedata,color_translation,update_time_cache,timezone
     
     try:
-        today_weekday = datetime.now(jst).strftime('%A')
-        now = datetime.now(jst)
+        today_weekday = datetime.now(timezone).strftime('%A')
+        now = datetime.now(timezone)
         today_date = now.strftime('%d')
         current_time = now.strftime("%H:%M")
         is_today_off = False
@@ -532,11 +539,11 @@ async def parse_time(time_str):
 
 # 関数定義: シャード開始時間と更新時間にメッセージを送信する非同期タスク
 async def send_message_periodically(ctx):
-    global guild_settings_cache,color_translation
+    global guild_settings_cache,color_translation,timezone
     await client.wait_until_ready()
     while not client.is_closed():
         # 現在の日付と時刻を取得
-        now = datetime.now(jst)
+        now = datetime.now(timezone)
         current_time = now.time()
         
         # 休みでない場合、指定された時間になったらメッセージを送信
@@ -638,10 +645,14 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
     #logger.info("1")
     # 新しい時間でジョブを追加
     try:
+        japan_tz = pytz.timezone('Asia/Tokyo')
         notify_time_obj = datetime.strptime(notify_time, "%H:%M")
+        # 日本時間の notify_time を UTC に変換
+        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(pytz.utc)
+
         new_job_id = f'{notify_type}_job_{len(job_ids) + 1}_{guild_id}'  # guild_idを含めた新しいジョブIDの作成
         #logger.info("2")
-        scheduler.add_job(job_function, CronTrigger(hour=notify_time_obj.hour, minute=notify_time_obj.minute), id=new_job_id, args=job_args)
+        scheduler.add_job(job_function, CronTrigger(hour=notify_time_utc.hour, minute=notify_time_utc.minute), id=new_job_id, args=job_args)
         #logger.info("2.5")
         # 新しいジョブIDをリストに追加
         daily_notify_job_ids.setdefault(notify_type, []).append(new_job_id)
@@ -661,27 +672,31 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
         logger.error(f"Error schedule_daily_notifyでエラー発生 {notify_type}: {e}")
 #一度だけ通知するジョブを設定する関数
 async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,message):
-    global scheduler
+    global scheduler,timezone
     try:
         # ジョブIDを設定するためのタイムスタンプを生成
         # ジョブIDを設定するためのタイムスタンプを生成
-        timestamp = datetime.now(jst).strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(timezone).strftime("%Y%m%d%H%M%S")
         random_suffix = random.randint(1, 1000)  # 1から1000までのランダムな整数
         job_id = f'one_time_notify_job_{notify_type}_{timestamp}_{random_suffix}_{guild_id}'
 
-        # 新しい時間でジョブを追加
+        # 日本時間の notify_time を UTC に変換
+        japan_tz = pytz.timezone('Asia/Tokyo')
         notify_time_obj = datetime.strptime(notify_time, "%Y-%m-%d %H:%M")
+        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(pytz.utc)
+        
         scheduler.add_job(send_shard_info, 
-                        CronTrigger(year=notify_time_obj.year, 
-                                    month=notify_time_obj.month, 
-                                    day=notify_time_obj.day, 
-                                    hour=notify_time_obj.hour, 
-                                    minute=notify_time_obj.minute), 
+                        CronTrigger(year=notify_time_utc.year, 
+                                    month=notify_time_utc.month, 
+                                    day=notify_time_utc.day, 
+                                    hour=notify_time_utc.hour, 
+                                    minute=notify_time_utc.minute), 
                         id=job_id,
                         args=[channel_id,guild_id,message])
         # ログ出力
         logger.info(f"Scheduled one-time job: {job_id}")
-        logger.info(f"  Notify Time: {notify_time}")
+        logger.info(f"  Notify Time(jp): {notify_time}")
+        logger.info(f"  Notify Time(jUTC: {notify_time_utc}")
         logger.info(f"  Channel ID: {channel_id}")
         logger.info(f"  Guild ID: {guild_id}")
 
@@ -757,9 +772,10 @@ async def on_disconnect():
 # !current_time コマンドの定義
 @client.command(name='current_time', help='Shows current time in scheduler.')
 async def current_time(ctx):
+    global timezone
     #current_scheduler_time = scheduler.get_current_time()  # スケジューラの現在時刻を取得する関数を実装する
     #await ctx.send(f'Current time in scheduler: {current_scheduler_time}')
-    await ctx.send(f"{datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    await ctx.send(f"{datetime.now(timezone).strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
 @client.command(name='ping')
 async def ping(ctx):
@@ -1107,6 +1123,7 @@ async def on_reaction_add(reaction, user):
         logger.debug(f"メッセージID {message_id} に対応するコマンドが見つかりませんでした。")
 #シャード開始時通知のスケジュール追加する関数
 async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message):
+    global timezone
     logger.info("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
@@ -1136,7 +1153,7 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message
         if is_today_off:
             return
 
-        current_date = datetime.now(jst).date()  # 現在の日付を取得
+        current_date = datetime.now(timezone).date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         # 実際の処理内容
         logger.info("シャード開始時間の通知ジョブを実行します")
@@ -1156,6 +1173,7 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message
         logger.error(f"シャード開始時間の通知ジョブのスケジュール中にエラーが発生しました: {e}")
 #シャード終了30分前通知のスケジュール追加する関数
 async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,message):
+    global timezone
     logger.info("schedule_shard_end_30_timesが呼ばれました")
     try:
         # クライアントからチャンネルオブジェクトを取得
@@ -1194,7 +1212,7 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
             return
         
         #logger.info("4")
-        current_date = datetime.now(jst).date()  # 現在の日付を取得
+        current_date = datetime.now(timezone).date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
         
         #logger.info("5")
