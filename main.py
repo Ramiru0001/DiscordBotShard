@@ -1,19 +1,6 @@
 import os
 import discord
-from dotenv import load_dotenv
-from discord.ext import commands
-#from flask import Flask
-#from keep_alive import keep_alive
 import json
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.schedulers.background import BackgroundScheduler
-from server import server_thread
-from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
-#import threading
 import asyncio
 import json
 import sqlite3
@@ -23,9 +10,22 @@ import sys
 import ast
 import random
 import re
-#import subprocess
 import signal
+#import threading
 #import pytz
+#import subprocess
+#from flask import Flask
+#from keep_alive import keep_alive
+from dotenv import load_dotenv
+from discord.ext import commands
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.background import BackgroundScheduler
+from server import server_thread
+from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 
 # Flaskサーバーを起動
 # app = Flask(__name__)
