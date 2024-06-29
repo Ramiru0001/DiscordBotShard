@@ -348,26 +348,26 @@ async def schedule_update_time_job():
         # 16時のジョブをスケジュール
         update_time_obj_16 = datetime.strptime("16:00", "%H:%M")
         job_id_16 = f"update_data_at_start_16"
-        update_time_dc_16 = japan_tz.localize(update_time_obj_16).astimezone(dc_tz)
+        update_time_utc_16 = japan_tz.localize(update_time_obj_16).astimezone(dc_tz)
 
         scheduler.add_job(update_data_at_start,
-                          CronTrigger(hour=update_time_dc_16.hour, 
-                                      minute=update_time_dc_16.minute), 
+                          CronTrigger(hour=update_time_utc_16.hour, 
+                                      minute=update_time_utc_16.minute), 
                           id=job_id_16,
                           args=["16:00"])
         
-        print(f"この時刻に更新されます：{update_time_dc_16.strftime('%m月%d日%H時%M分')}")
+        print(f"この時刻に通知されます：{update_time_utc_16}")
         # 17時のジョブをスケジュール
         update_time_obj_17 = datetime.strptime("17:00", "%H:%M")
-        update_time_dc_17 = japan_tz.localize(update_time_obj_17).astimezone(dc_tz)
+        update_time_utc_17 = japan_tz.localize(update_time_obj_17).astimezone(dc_tz)
         
         job_id_17 = f"update_data_at_start_17"
         scheduler.add_job(update_data_at_start,
-                          CronTrigger(hour=update_time_dc_17.hour, 
-                                      minute=update_time_dc_17.minute), 
+                          CronTrigger(hour=update_time_utc_17.hour, 
+                                      minute=update_time_utc_17.minute), 
                           id=job_id_17,
                           args=["17:00"])
-        print(f"この時刻に更新されます：{update_time_dc_17.strftime('%m月%d日%H時%M分')}")
+        print(f"この時刻に通知されます：{update_time_utc_17}")
         # ログ出力
         logger.info("データ更新ジョブをスケジュールしました:")
         logger.info(f"  16時の更新ジョブ, ジョブID: {job_id_16}")
@@ -391,7 +391,6 @@ async def update_data_at_start(update_time):
         display_data = None
         # 実際の処理内容
         logger.info("update_data_at_start 関数を実行中。update_time: %s", update_time)
-        print(f"{update_time}のデータ更新が行われました")
         # 現在の時刻がupdate_timeより前の場合は前日のデータを表示
         if current_time < update_time:
             # 前日の日付を取得
@@ -657,7 +656,7 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
         #logger.info("2")
         scheduler.add_job(job_function, CronTrigger(hour=notify_time_dc.hour, minute=notify_time_dc.minute), id=new_job_id, args=job_args)
         
-        print(f"この時刻に通知されます：{notify_time_dc.strftime('%H:%M')}")
+        print(f"この時刻に通知されます：{notify_time_dc}")
         #logger.info("2.5")
         # 新しいジョブIDをリストに追加
         daily_notify_job_ids.setdefault(notify_type, []).append(new_job_id)
@@ -689,21 +688,21 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,
         japan_tz = pytz.timezone('Asia/Tokyo')
         dc_tz = pytz.timezone('America/New_York')
         notify_time_obj = datetime.strptime(notify_time, "%Y-%m-%d %H:%M")
-        notify_time_dc = japan_tz.localize(notify_time_obj).astimezone(dc_tz)
+        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(dc_tz)
         
         scheduler.add_job(send_shard_info, 
-                        CronTrigger(year=notify_time_dc.year, 
-                                    month=notify_time_dc.month, 
-                                    day=notify_time_dc.day, 
-                                    hour=notify_time_dc.hour, 
-                                    minute=notify_time_dc.minute), 
+                        CronTrigger(year=notify_time_utc.year, 
+                                    month=notify_time_utc.month, 
+                                    day=notify_time_utc.day, 
+                                    hour=notify_time_utc.hour, 
+                                    minute=notify_time_utc.minute), 
                         id=job_id,
                         args=[channel_id,guild_id,message])
-        print(f"この時刻に通知されます：{notify_time_dc.strftime('%m月%d日%H時%M分')}")
+        print(f"この時刻に通知されます：{notify_time_utc}")
         # ログ出力
         logger.info(f"Scheduled one-time job: {job_id}")
         logger.info(f"  Notify Time(jp): {notify_time}")
-        logger.info(f"  Notify Time(jUTC: {notify_time_dc}")
+        logger.info(f"  Notify Time(jUTC: {notify_time_utc}")
         logger.info(f"  Channel ID: {channel_id}")
         logger.info(f"  Guild ID: {guild_id}")
 
@@ -1472,11 +1471,11 @@ async def schedule_notify_jobs(guild_id):
                     # もしshard_notify_channel_idがリストであれば、最初の要素を使用するなど適切な方法で文字列に変換する
                     shard_notify_channel_id = shard_notify_channel_id[0]  # 例: 最初の要素を使用する
                 # schedule_daily_notify を使ってジョブをスケジュール
-                #print("1")
+                print("1")
                 await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'start_time', schedule_shard_start_times, job_args)
-                #print("2")
+                print("2")
                 await schedule_shard_start_times(shard_notify_channel_id,'start_time',message)
-                #print("3")
+                print("3")
 
             elif option_index == 2:  # シャード終了30分前
                 logger.info("シャード終了30分前の通知ジョブをスケジュールします")
@@ -1484,11 +1483,11 @@ async def schedule_notify_jobs(guild_id):
                 message="シャード終了時間30分前です。\n今日のシャード情報"
                 job_args = (shard_notify_channel_id,"end_30_minutes",message)
                 # schedule_daily_notify を使ってジョブをスケジュール
-                #print("4")
+                print("4")
                 await schedule_daily_notify(update_time, shard_notify_channel_id,guild_id, 'end_30_minutes', schedule_shard_end_30_times, job_args)
-                #print("5")
+                print("5")
                 await schedule_shard_end_30_times(shard_notify_channel_id,"end_30_minutes",message)
-                #print("6")
+                print("6")
             else:
                 pass
         except Exception as e:
