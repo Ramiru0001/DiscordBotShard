@@ -13,7 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
 from server import server_thread
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
-import threading
+#import threading
 import asyncio
 import json
 import sqlite3
