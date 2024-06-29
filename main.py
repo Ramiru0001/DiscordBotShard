@@ -714,7 +714,7 @@ def has_permission(user_id):
     return False
 # Intentsを設定
 intents = discord.Intents.default()
-intents.message_content = True  # メッセージコンテンツを取得するために必要
+intents.messages = True  # メッセージコンテンツを取得するために必要
 intents.reactions = True  # リアクションイベントを受け取るために必要
 # ボットを作成
 client = commands.Bot(command_prefix='!',intents=intents)
