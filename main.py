@@ -1685,7 +1685,7 @@ async def remove_user_reaction(reaction, user):
 try:
     # Koyeb用 サーバー立ち上げ
     #server_thread()
-    client.run(os.environ['TOKEN'])
+    client.run(TOKEN)
 except:
     os.system("kill")
 
