@@ -24,7 +24,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
-from server import server_thread
+#from server import server_thread
 from datetime import datetime, time, timedelta  # datetimeモジュールをインポート
 
 # Flaskサーバーを起動
