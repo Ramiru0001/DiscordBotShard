@@ -87,7 +87,6 @@ conn.commit()
 
 # キャッシュ用の辞書
 guild_settings_cache = {}
-
 #全てのサーバーのデータをDBから読み込む。初期化時に設定をロード
 def load_all_guild_settings():
     global guild_settings_cache
@@ -754,12 +753,6 @@ async def on_disconnect():
     # 必要に応じて設定を保存する
 # メッセージを受信したときの処理
 # コマンドを定義
-# !current_time コマンドの定義
-@client.command(name='current_time', help='Shows current time in scheduler.')
-async def current_time(ctx):
-    current_scheduler_time = scheduler.get_current_time()  # スケジューラの現在時刻を取得する関数を実装する
-    await ctx.send(f'Current time in scheduler: {current_scheduler_time}')
-
 @client.command(name='ping')
 async def ping(ctx):
     await ctx.send('Pong!')
@@ -1381,7 +1374,11 @@ async def remove_jobs_by_guild_id(guild_id):
         if job_guild_id == str(guild_id):
             scheduler.remove_job(job.id)
     #セーブデータと、データベースからも削除する
+<<<<<<< HEAD
     save_server_settings(guild_id, "17:00", None,None,None)
+=======
+    save_server_settings(guild_id, None, None,None,)
+>>>>>>> parent of 10d5e76 (a)
 
 #通知時間のスケジュール設定部分
 async def schedule_notify_jobs(guild_id):
