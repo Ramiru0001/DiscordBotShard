@@ -757,9 +757,8 @@ async def on_disconnect():
 # !current_time コマンドの定義
 @client.command(name='current_time', help='Shows current time in scheduler.')
 async def current_time(ctx):
-    #current_scheduler_time = scheduler.get_current_time()  # スケジューラの現在時刻を取得する関数を実装する
-    #await ctx.send(f'Current time in scheduler: {current_scheduler_time}')
-    await ctx.send(f"{datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    current_scheduler_time = scheduler.get_current_time()  # スケジューラの現在時刻を取得する関数を実装する
+    await ctx.send(f'Current time in scheduler: {current_scheduler_time}')
 
 @client.command(name='ping')
 async def ping(ctx):
