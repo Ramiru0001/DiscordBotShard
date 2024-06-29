@@ -344,11 +344,11 @@ async def schedule_update_time_job():
     await update_data_at_start("17:00")
     try:
         japan_tz = pytz.timezone('Asia/Tokyo')
-        dc_tz = pytz.timezone('America/New_York')  # ワシントンDCのタイムゾーン
+
         # 16時のジョブをスケジュール
         update_time_obj_16 = datetime.strptime("16:00", "%H:%M")
         job_id_16 = f"update_data_at_start_16"
-        update_time_utc_16 = japan_tz.localize(update_time_obj_16).astimezone(dc_tz)
+        update_time_utc_16 = japan_tz.localize(update_time_obj_16).astimezone(pytz.utc)
 
         scheduler.add_job(update_data_at_start,
                           CronTrigger(hour=update_time_utc_16.hour, 
@@ -358,7 +358,7 @@ async def schedule_update_time_job():
 
         # 17時のジョブをスケジュール
         update_time_obj_17 = datetime.strptime("17:00", "%H:%M")
-        update_time_utc_17 = japan_tz.localize(update_time_obj_17).astimezone(dc_tz)
+        update_time_utc_17 = japan_tz.localize(update_time_obj_17).astimezone(pytz.utc)
         
         job_id_17 = f"update_data_at_start_17"
         scheduler.add_job(update_data_at_start,
@@ -646,14 +646,13 @@ async def schedule_daily_notify(notify_time, channel_id,guild_id, notify_type,jo
     # 新しい時間でジョブを追加
     try:
         japan_tz = pytz.timezone('Asia/Tokyo')
-        dc_tz = pytz.timezone('America/New_York')
         notify_time_obj = datetime.strptime(notify_time, "%H:%M")
         # 日本時間の notify_time を UTC に変換
-        notify_time_dc = japan_tz.localize(notify_time_obj).astimezone(dc_tz)
+        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(pytz.utc)
 
         new_job_id = f'{notify_type}_job_{len(job_ids) + 1}_{guild_id}'  # guild_idを含めた新しいジョブIDの作成
         #logger.info("2")
-        scheduler.add_job(job_function, CronTrigger(hour=notify_time_dc.hour, minute=notify_time_dc.minute), id=new_job_id, args=job_args)
+        scheduler.add_job(job_function, CronTrigger(hour=notify_time_utc.hour, minute=notify_time_utc.minute), id=new_job_id, args=job_args)
         #logger.info("2.5")
         # 新しいジョブIDをリストに追加
         daily_notify_job_ids.setdefault(notify_type, []).append(new_job_id)
@@ -683,9 +682,8 @@ async def schedule_one_time_notify(notify_time, channel_id,guild_id,notify_type,
 
         # 日本時間の notify_time を UTC に変換
         japan_tz = pytz.timezone('Asia/Tokyo')
-        dc_tz = pytz.timezone('America/New_York')
         notify_time_obj = datetime.strptime(notify_time, "%Y-%m-%d %H:%M")
-        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(dc_tz)
+        notify_time_utc = japan_tz.localize(notify_time_obj).astimezone(pytz.utc)
         
         scheduler.add_job(send_shard_info, 
                         CronTrigger(year=notify_time_utc.year, 
