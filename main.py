@@ -89,6 +89,7 @@ conn.commit()
 
 # キャッシュ用の辞書
 guild_settings_cache = {}
+
 # シャットダウン処理を定義
 async def shutdown():
     print("シャットダウンしています...")
@@ -97,8 +98,19 @@ async def shutdown():
 
 # シグナルを受け取った時の処理を定義
 def handle_signal(sig):
-    print(f"シグナルを受信: {sig.name}")
+    sig_names = {
+        signal.SIGINT: 'SIGINT',
+        signal.SIGTERM: 'SIGTERM'
+    }
+    name = sig_names.get(sig, 'Unknown signal')
+    print(f"シグナルを受信: {name}")
     asyncio.create_task(shutdown())
+
+# シグナルハンドラを設定する関数
+def setup_signals():
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, handle_signal)
+
 
 #全てのサーバーのデータをDBから読み込む。初期化時に設定をロード
 def load_all_guild_settings():
@@ -288,16 +300,16 @@ options = ["デイリー更新時", "シャード開始時間", "シャード終
 #logging.basicConfig()
 #logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 # ルートロガーの設定
-logging.basicConfig(level=logging.ERROR)  # ルートロガーのデフォルトレベルをWARNINGに設定
+logging.basicConfig(level=logging.INFO)  # ルートロガーのデフォルトレベルをWARNINGに設定
 
 # ロガーの設定
 logger = logging.getLogger('discord_bot')
 #logger.setLevel(logging.DEBUG) # discord_bot ロガーのログレベルをDEBUGに設定
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.INFO)
 
 # ハンドラーの設定
 handler = logging.StreamHandler()
-handler.setLevel(logging.ERROR)# ハンドラーのログレベルをDEBUGに設定
+handler.setLevel(logging.INFO)# ハンドラーのログレベルをDEBUGに設定
 
 # フォーマッターの設定
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -532,7 +544,7 @@ async def send_shard_info(channel_id,guild_id,additional_message=None):
             # 追加のメッセージがあれば結合して送信
             if additional_message:
                 message = f"{additional_message}\n\n{message}"
-            await channel.send(shard_info)
+            await channel.send(message)
     else:
         await channel.send("データが見つかりませんでした。")
 # "0時50分"形式の文字列をdatetime.timeオブジェクトに変換する
@@ -542,51 +554,51 @@ async def parse_time(time_str):
     return datetime.strptime(f'{hour}:{minute}', '%H:%M').time()
 
 # 関数定義: シャード開始時間と更新時間にメッセージを送信する非同期タスク
-async def send_message_periodically(ctx):
-    global guild_settings_cache,color_translation
-    await client.wait_until_ready()
-    while not client.is_closed():
-        # 現在の日付と時刻を取得
-        now = datetime.now()
-        current_time = now.time()
+# async def send_message_periodically(ctx):
+    # global guild_settings_cache,color_translation
+    # await client.wait_until_ready()
+    # while not client.is_closed():
+    #     # 現在の日付と時刻を取得
+    #     now = datetime.now()
+    #     current_time = now.time()
         
-        # 休みでない場合、指定された時間になったらメッセージを送信
-    guild_id = ctx.guild.id
-    # キャッシュからupdate_timeを読み込む
-    if guild_id in guild_settings_cache:
-        update_time = guild_settings_cache[guild_id]['update_time']
-    else:
-        # キャッシュに該当guild_idがない場合のデフォルト処理
-        update_time = '17:00'
-    # データを取得
-    data = get_data_for_update_time(update_time)
+    #     # 休みでない場合、指定された時間になったらメッセージを送信
+    # guild_id = ctx.guild.id
+    # # キャッシュからupdate_timeを読み込む
+    # if guild_id in guild_settings_cache:
+    #     update_time = guild_settings_cache[guild_id]['update_time']
+    # else:
+    #     # キャッシュに該当guild_idがない場合のデフォルト処理
+    #     update_time = '17:00'
+    # # データを取得
+    # data = get_data_for_update_time(update_time)
 
-    # 必要な情報を取り出す
-    is_today_off = data['is_today_off']
-    matching_shard = data['matching_shard']
-    display_data = data['display_data']
-    updated_time1_start = data['updated_time1_start']
-    updated_time1_end = data['updated_time1_end']
-    updated_time2_start = data['updated_time2_start']
-    updated_time2_end = data['updated_time2_end']
-    updated_time3_start = data['updated_time3_start']
-    updated_time3_end = data['updated_time3_end']
+    # # 必要な情報を取り出す
+    # is_today_off = data['is_today_off']
+    # matching_shard = data['matching_shard']
+    # display_data = data['display_data']
+    # updated_time1_start = data['updated_time1_start']
+    # updated_time1_end = data['updated_time1_end']
+    # updated_time2_start = data['updated_time2_start']
+    # updated_time2_end = data['updated_time2_end']
+    # updated_time3_start = data['updated_time3_start']
+    # updated_time3_end = data['updated_time3_end']
     
-    if not update_time_cache[is_today_off]:
-        # display_dataのtime1, time2, time3を取得
-        time1 = display_data['time1']
-        time2 = display_data['time2']
-        time3 = display_data['time3']
-        extra_time = time(16, 0)
+    # if not update_time_cache[is_today_off]:
+    #     # display_dataのtime1, time2, time3を取得
+    #     time1 = display_data['time1']
+    #     time2 = display_data['time2']
+    #     time3 = display_data['time3']
+    #     extra_time = time(16, 0)
     
-        # 現在の時間がtime1, time2, time3のいずれかに含まれているかをチェックして、その場合にメッセージを送信
-        if (current_time == parse_time(time1) or
-            current_time == parse_time(time2) or
-            current_time == parse_time(time3)or
-            current_time == extra_time):
-            await send_shard_info(ctx.channel.id,guild_id)
-            # タイマーの間隔を設定（30秒ごとにチェック）
-    await asyncio.sleep(60)
+    #     # 現在の時間がtime1, time2, time3のいずれかに含まれているかをチェックして、その場合にメッセージを送信
+    #     if (current_time == parse_time(time1) or
+    #         current_time == parse_time(time2) or
+    #         current_time == parse_time(time3)or
+    #         current_time == extra_time):
+    #         await send_shard_info(ctx.channel.id,guild_id)
+    #         # タイマーの間隔を設定（30秒ごとにチェック）
+    # await asyncio.sleep(60)
 #更新時間をセットする
 async def setup_update_time(ctx):
     # 選択画面のメッセージを送信
@@ -715,6 +727,8 @@ def has_permission(user_id):
 # Intentsを設定
 intents = discord.Intents.default()
 intents.messages = True  # メッセージコンテンツを取得するために必要
+if sys.platform == "win32":
+    intents.message_content = True
 intents.reactions = True  # リアクションイベントを受け取るために必要
 # ボットを作成
 client = commands.Bot(command_prefix='!',intents=intents)
@@ -725,6 +739,7 @@ client = commands.Bot(command_prefix='!',intents=intents)
 async def on_ready():
     global scheduler,guild_settings_cache
     logger.info(f'{client.user.name} が起動しました')
+    print("on_readyが呼ばれました")
     #現在のデータに更新して、更新時間に更新するスケジュール
     await schedule_update_time_job()
     # サーバー設定を読み込む
@@ -780,6 +795,7 @@ async def print_scheduled_jobs(ctx):
     jobs = scheduler.get_jobs()
     if jobs:
         logger.info("Scheduled Jobs:")
+        jobs_found = False
         for job in jobs:
             job_id = job.id
             job_func = job.func.__name__
@@ -787,8 +803,42 @@ async def print_scheduled_jobs(ctx):
             job_kwargs = job.kwargs
             job_trigger = job.trigger
             await ctx.send(f"Job ID: {job_id}, Function: {job_func}, Args: {job_args}, Kwargs: {job_kwargs}, Trigger: {job_trigger}")
+            jobs_found = True
         else:
-            await ctx.send("No scheduled jobs found.")
+            await ctx.send("全てのジョブを出力しました。")
+        if not jobs_found:
+            await ctx.send("ジョブが見つかりませんでした。")
+# 予定されているジョブを出力する関数
+@client.command(name='show_guild_schedule')
+async def print_guild_scheduled_jobs(ctx):
+    user_id = ctx.author.id  # コマンドを実行したユーザーのIDを取得
+    if has_permission(user_id)==False:
+        await ctx.send("権限がありません。")
+        return
+    guild_id = ctx.guild.id  # ギルドのIDを取得
+    jobs = scheduler.get_jobs()
+
+    if jobs:
+        logger.info("Scheduled Jobs:")
+        jobs_found = False
+        for job in jobs:
+            # ジョブのIDからギルドIDを取得
+            job_guild_id = job.id.split('_')[-1]  # ジョブIDの末尾がギルドIDとなると仮定して分割して取得
+            
+            if job_guild_id == str(guild_id):
+                job_id = job.id
+                job_func = job.func.__name__
+                job_args = job.args
+                job_kwargs = job.kwargs
+                job_trigger = job.trigger
+                await ctx.send(f"Job ID: {job_id}, Function: {job_func}, Args: {job_args}, Kwargs: {job_kwargs}, Trigger: {job_trigger}")
+                jobs_found = True
+        else:
+            await ctx.send("全てのジョブを出力しました。")
+        if not jobs_found:
+            await ctx.send("指定したギルドIDに関連するジョブが見つかりませんでした。")
+    else:
+        await ctx.send("予定されているジョブがありません。")
 # !info コマンドの実装
 @client.command(name='info')
 async def info_command(ctx):
@@ -826,6 +876,7 @@ async def debug_info_command(ctx):
     # コマンドの説明を定義
     command_info = {
         '!show_schedule': 'デバッグ用：全てのスケジュールを確認可能',
+        '!show_guild_schedule':'デバッグ用：実行されたサーバーのスケジュールを確認可能',
         '!schedule_reset_all': 'デバッグ用：全てのスケジュールを削除して再スケジュール',
         '!add_permission': 'デバッグ用：権限付与（オーナーのみ使用可能）',
         '!remove_permission': 'デバッグ用：権限剥奪',
@@ -1074,7 +1125,8 @@ async def setup_time(ctx):
 @client.command(name='check_today_data')
 async def check_today_data(ctx):
     #channel = ctx.channel  # コンテキストからチャンネルオブジェクトを取得
-    await send_shard_info(ctx.channel.id,ctx.guild.id)
+    message="本日のシャード情報"
+    await send_shard_info(ctx.channel.id,ctx.guild.id,message)
 
 # リアクションが追加されたときに実行される処理
 @client.event
@@ -1139,9 +1191,16 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message
         ]
         if is_today_off:
             return
-
-        current_date = datetime.now().date()  # 現在の日付を取得
+        # 現在の日付を取得
+        current_date = datetime.now().date()  
+        #更新時間
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
+        #現在の時間が更新時間より前＝日付変更後なら、updatetime_dateは前日にする
+        #更新時間の日付を入手
+        if(datetime.now().time()<update_time_obj):
+            updatetime_date=current_date -  timedelta(days=1)
+        else:
+            updatetime_date=current_date
         # 実際の処理内容
         logger.info("シャード開始時間の通知ジョブを実行します")
         
@@ -1149,12 +1208,19 @@ async def schedule_shard_start_times(shard_notify_channel_id,notify_type,message
         for time_str in updated_times:
             if not time_str:
                 continue
-            notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+            #とりあえず更新時間の日付をいれる？
+            notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=updatetime_date.year, month=updatetime_date.month, day=updatetime_date.day)
             
-            if notify_time.time() >= update_time_obj:
+            # もし16時以前なら、次の日の日付にする
+            if notify_time.time() < update_time_obj:
+                notify_time = notify_time + timedelta(days=1)
+
+            # notify_timeが過去の時間でなければスケジュールする
+            if notify_time >= datetime.now():
                 # 過去の時間でなければスケジュールする
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
                 await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type,message)
+                #logger.info(f"{notify_time} : シャード開始時間の通知ジョブを実行します")
     
     except Exception as e:
         logger.error(f"シャード開始時間の通知ジョブのスケジュール中にエラーが発生しました: {e}")
@@ -1200,7 +1266,12 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
         #logger.info("4")
         current_date = datetime.now().date()  # 現在の日付を取得
         update_time_obj = datetime.strptime(update_time, '%H:%M').time()
-        
+        #現在の時間が更新時間より前＝日付変更後なら、updatetime_dateは前日にする
+        #更新時間の日付を入手
+        if(datetime.now().time()<update_time_obj):
+            updatetime_date=current_date -  timedelta(days=1)
+        else:
+            updatetime_date=current_date
         #logger.info("5")
         # 実際の処理内容
         logger.info("シャード終了30分前の通知ジョブを実行します")
@@ -1211,16 +1282,19 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
                 continue
             
             #logger.info("6")
-            notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=current_date.year, month=current_date.month, day=current_date.day)
+            notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=updatetime_date.year, month=updatetime_date.month, day=updatetime_date.day)
             notify_time -= timedelta(minutes=30)
-            
-            if notify_time.time() >= update_time_obj:
-                # 過去の時間でなければスケジュールする
+
+            # もし16時以前なら、次の日の日付にする
+            if notify_time.time() < update_time_obj:
+                notify_time = notify_time + timedelta(days=1)
+
+            # 過去の時間でなければスケジュールする
+            if notify_time.time() >= datetime.now():
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
                 await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type,message)
                 
                 #logger.info("7")
-        
         #logger.info("8")
     except Exception as e:
         logger.error(f"シャード終了30分前の通知ジョブのスケジュール中にエラーが発生しました: {e}")
@@ -1681,30 +1755,46 @@ async def remove_user_reaction(reaction, user):
 # Koyeb用 サーバー立ち上げ
 #server_thread()
 #client.run(TOKEN)
-#ローカル
-try:
-    # Koyeb用 サーバー立ち上げ
-    #server_thread()
-    client.run(TOKEN)
-except:
-    os.system("kill")
 
 # イベントループを開始
 async def main():
+    #print("mainが呼ばれました")
+    #ローカル
+    #try:
+        # Koyeb用 サーバー立ち上げ
+        #server_thread()
+        
+    setup_signals()
+    await client.start(TOKEN)
+    # except:
+    #     os.system("kill")
     # シグナルハンドラーの設定
     loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGINT, handle_signal, signal.SIGINT)
-    loop.add_signal_handler(signal.SIGTERM, handle_signal, signal.SIGTERM)
+    if sys.platform != 'win32':
+        loop.add_signal_handler(signal.SIGINT, handle_signal, signal.SIGINT)
+        loop.add_signal_handler(signal.SIGTERM, handle_signal, signal.SIGTERM)
+    else:
+        for sig in ('SIGINT', 'SIGTERM'):
+            signal.signal(getattr(signal, sig), 
+            lambda s, f: handle_signal(s))
     while not shutdown_event.is_set():
         await asyncio.sleep(10)  # スケジューラがバックグラウンドで実行されるようにする
     print("メインループを終了しています")
-
+    await shutdown_event.wait()  # シャットダウンイベントの完了を待機する
+    
 # エントリーポイント
 if __name__ == '__main__':
     try:
-        asyncio.run(main())
+        if sys.platform == "win32":
+            loop = asyncio.ProactorEventLoop()
+            asyncio.set_event_loop(loop)
+        else:
+            loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
     except KeyboardInterrupt:
         print("プログラムが手動で中断されました")
+    finally:
+        loop.close()
 
 # 非同期処理を開始
 asyncio.run(main())
