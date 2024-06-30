@@ -434,6 +434,17 @@ async def update_data_at_start(update_time):
         if display_data:
             # 今日が休みかどうかをチェック
             if is_today_off:
+                update_time_cache[update_time] = {
+                'is_today_off': is_today_off,
+                'updated_time1_start': None,
+                'updated_time1_end': None,
+                'updated_time2_start': None,
+                'updated_time2_end': None,
+                'updated_time3_start': None,
+                'updated_time3_end': None,
+                'matching_shard': matching_shard,
+                'display_data': display_data
+            }
                 #await channel.send("休み")
                 pass
             else:
@@ -529,7 +540,11 @@ async def send_shard_info(channel_id,guild_id,additional_message=None):
     if display_data:
         # 今日が休みかどうかをチェック
         if is_today_off:
-            await channel.send("休み")
+            message = "休み"
+            # 追加のメッセージがあれば結合して送信
+            if additional_message:
+                message = f"{additional_message}\n\n{message}"
+            await channel.send(message)
         else:
             color_japanese = color_translation.get(display_data['color'], display_data['color'])
             shard_info = (
@@ -1283,6 +1298,7 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
             
             #logger.info("6")
             notify_time = datetime.strptime(time_str, '%H時%M分').replace(year=updatetime_date.year, month=updatetime_date.month, day=updatetime_date.day)
+
             notify_time -= timedelta(minutes=30)
 
             # もし16時以前なら、次の日の日付にする
@@ -1290,7 +1306,7 @@ async def schedule_shard_end_30_times(shard_notify_channel_id,notify_type,messag
                 notify_time = notify_time + timedelta(days=1)
 
             # 過去の時間でなければスケジュールする
-            if notify_time.time() >= datetime.now():
+            if notify_time >= datetime.now():
                 notify_time = notify_time.strftime('%Y-%m-%d %H:%M')
                 await schedule_one_time_notify(notify_time, shard_notify_channel_id,guild_id,notify_type,message)
                 
